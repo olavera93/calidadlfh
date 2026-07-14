@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(npx vite *)",
+      "Bash(venv/bin/python -c ' *)",
+      "Bash(venv/bin/python seed_registros.py)",
+      "Bash(venv/bin/python migrate_add_humidity.py)",
+      "Read(//home/antares/Projects/calidad_lfh/calidad/**)",
+      "Read(//home/antares/Projects/calidad_lfh/calidad/routers/**)",
+      "Bash(find /home/antares/Projects/calidad_lfh/calidad -type f -name \"*.py\" | head -20)",
+      "Bash(find /home/antares/Projects/calidad_lfh/backend/app -type f -name \"*.php\" | head -20)",
+      "Read(//home/antares/Projects/calidad_lfh/backend/app/**)",
+      "Bash(find /home/antares/Projects/calidad_lfh/backend/routes -type f -name \"*.php\")",
+      "Read(//home/antares/Projects/calidad_lfh/backend/routes/**)",
+      "Bash(find /home/antares/Projects/calidad_lfh/backend/database/migrations -type f -name \"*.php\" | head -20)",
+      "Read(//home/antares/Projects/calidad_lfh/backend/database/migrations/**)",
+      "Bash(find /home/antares/Projects/calidad_lfh/frontend/src -type f -name \"*.jsx\" -o -name \"*.tsx\" -o -name \"*.js\" | head -30)",
+      "Read(//home/antares/Projects/calidad_lfh/frontend/src/**)",
+      "Bash(find /home/antares/Projects/calidad_lfh -name \".env.example\" -o -name \".env\" -o -name \"*.env\" 2>/dev/null | head -5)",
+      "Read(//home/antares/Projects/calidad_lfh/**)",
+      "Bash(grep -E '\\\\.\\(py|xml|json|yaml|yml|txt\\)$')",
+      "Bash(grep -E '\\\\.\\(jsx|js|json|tsx|ts|css|html\\)$')",
+      "Bash(git -C /home/antares/Projects/calidad_lfh diff master..prueba --name-status)",
+      "Bash(git -C /home/antares/Projects/calidad_lfh diff master..prueba -- backend/app/Services/OdooService.php backend/app/Http/Controllers/Api/OdooController.php backend/routes/api.php frontend/src/pages/odoo/RecepcionList.jsx)",
+      "Bash(git -C /home/antares/Projects/calidad_lfh show prueba:backend/app/Services/OdooService.php)",
+      "Bash(git -C /home/antares/Projects/calidad_lfh show prueba:frontend/src/pages/odoo/RecepcionList.jsx)",
+      "Bash(npm run *)"
+    ]
+  }
+}

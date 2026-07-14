@@ -1,0 +1,122 @@
+
+> sistema-calidad@0.1.0 dev
+> vite
+
+
+  VITE v5.4.21  ready in 121 ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: use --host to expose
+10:42:43 PM [vite] hmr update /src/pages/temperaturas/DayView.jsx, /src/index.css
+10:43:28 PM [vite] hmr update /src/pages/odoo/OdooVencimientos.jsx, /src/index.css
+10:47:55 PM [vite] hmr update /src/App.jsx, /src/index.css
+10:48:06 PM [vite] hmr update /src/App.jsx, /src/index.css
+10:48:18 PM [vite] hmr update /src/components/layout/Sidebar.jsx, /src/index.css
+10:48:25 PM [vite] hmr update /src/components/layout/Sidebar.jsx, /src/index.css
+10:48:45 PM [vite] hmr update /src/components/layout/Header.jsx, /src/index.css
+10:50:57 PM [vite] hmr update /src/pages/odoo/OdooVencimientos.jsx, /src/index.css
+10:53:05 PM [vite] hmr update /src/pages/temperaturas/MonthView.jsx, /src/index.css
+10:54:11 PM [vite] hmr update /src/pages/configuracion/Configuracion.jsx, /src/index.css
+10:56:20 PM [vite] hmr update /src/pages/odoo/OdooRecepciones.jsx, /src/index.css
+11:01:16 PM [vite] hmr update /src/index.css
+11:01:24 PM [vite] hmr update /src/components/layout/Layout.jsx, /src/index.css
+11:01:25 PM [vite] ✨ new dependencies optimized: cmdk
+11:01:25 PM [vite] ✨ optimized dependencies changed. reloading
+11:01:37 PM [vite] hmr update /src/components/layout/Header.jsx, /src/index.css
+11:01:44 PM [vite] hmr update /src/pages/odoo/OdooVencimientos.jsx, /src/index.css
+11:01:52 PM [vite] hmr update /src/pages/odoo/OdooVencimientos.jsx, /src/index.css
+11:03:32 PM [vite] page reload tailwind.config.js
+11:03:38 PM [vite] hmr update /src/index.css
+11:03:42 PM [vite] hmr update /src/index.css
+11:03:59 PM [vite] hmr update /src/index.css
+11:04:09 PM [vite] hmr update /src/index.css
+11:04:19 PM [vite] hmr update /src/components/ui/Skeleton.jsx, /src/index.css
+11:04:35 PM [vite] hmr update /src/components/layout/Layout.jsx, /src/index.css
+11:04:39 PM [vite] hmr update /src/components/layout/Layout.jsx, /src/index.css
+11:04:47 PM [vite] hmr update /src/components/layout/Layout.jsx, /src/index.css
+11:04:53 PM [vite] hmr update /src/pages/Dashboard.jsx, /src/index.css
+11:05:05 PM [vite] hmr update /src/pages/Dashboard.jsx, /src/index.css
+11:05:20 PM [vite] hmr update /src/pages/Dashboard.jsx, /src/index.css
+11:05:31 PM [vite] hmr update /src/pages/Dashboard.jsx, /src/index.css
+11:05:41 PM [vite] hmr update /src/pages/Dashboard.jsx, /src/index.css
+11:05:47 PM [vite] hmr update /src/pages/Dashboard.jsx, /src/index.css
+11:06:52 PM [vite] hmr update /src/pages/Dashboard.jsx, /src/index.css
+11:08:00 PM [vite] hmr update /src/pages/Dashboard.jsx, /src/index.css
+11:08:14 PM [vite] hmr update /src/index.css, /src/pages/Dashboard.jsx
+11:08:19 PM [vite] hmr update /src/index.css, /src/pages/Dashboard.jsx
+11:08:28 PM [vite] hmr update /src/index.css, /src/pages/Dashboard.jsx
+11:08:34 PM [vite] hmr update /src/index.css, /src/pages/Dashboard.jsx
+11:08:41 PM [vite] hmr update /src/index.css, /src/pages/Dashboard.jsx
+11:08:47 PM [vite] hmr update /src/index.css, /src/pages/Dashboard.jsx
+11:08:55 PM [vite] hmr update /src/index.css, /src/pages/Dashboard.jsx
+11:09:03 PM [vite] hmr update /src/index.css, /src/pages/Dashboard.jsx
+11:09:13 PM [vite] hmr update /src/index.css, /src/pages/Dashboard.jsx
+11:10:53 PM [vite] hmr update /src/pages/odoo/OdooRecepciones.jsx, /src/index.css
+11:10:53 PM [vite] Internal server error: /home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/src/pages/odoo/OdooRecepciones.jsx: Expected corresponding JSX closing tag for <div>. (414:10)
+
+  412 |               </div>
+  413 |             )}
+> 414 |           </>
+      |           ^
+  415 |         )}
+  416 |       </div>
+  417 |     </div>
+  Plugin: vite:react-babel
+  File: /home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/src/pages/odoo/OdooRecepciones.jsx:414:10
+  412|                </div>
+  413|              )}
+  414|            </>
+     |            ^
+  415|          )}
+  416|        </div>
+      at constructor (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:365:19)
+      at JSXParserMixin.raise (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:6616:19)
+      at JSXParserMixin.jsxParseElementAt (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:4734:14)
+      at JSXParserMixin.jsxParseElementAt (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:4710:32)
+      at JSXParserMixin.jsxParseElement (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:4761:17)
+      at JSXParserMixin.parseExprAtom (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:4771:19)
+      at JSXParserMixin.parseExprSubscripts (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:11098:23)
+      at JSXParserMixin.parseUpdate (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:11083:21)
+      at JSXParserMixin.parseMaybeUnary (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:11063:23)
+      at JSXParserMixin.parseMaybeUnaryOrPrivate (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:10916:61)
+      at JSXParserMixin.parseExprOps (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:10921:23)
+      at JSXParserMixin.parseMaybeConditional (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:10898:23)
+      at JSXParserMixin.parseMaybeAssign (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:10848:21)
+      at /home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:10817:39
+      at JSXParserMixin.allowInAnd (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:12443:12)
+      at JSXParserMixin.parseMaybeAssignAllowIn (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:10817:17)
+      at JSXParserMixin.parseMaybeAssignAllowInOrVoidPattern (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:12510:17)
+      at JSXParserMixin.parseParenAndDistinguishExpression (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:11692:28)
+      at JSXParserMixin.parseExprAtom (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:11348:23)
+      at JSXParserMixin.parseExprAtom (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:4776:20)
+      at JSXParserMixin.parseExprSubscripts (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:11098:23)
+      at JSXParserMixin.parseUpdate (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:11083:21)
+      at JSXParserMixin.parseMaybeUnary (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:11063:23)
+      at JSXParserMixin.parseMaybeUnaryOrPrivate (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:10916:61)
+      at JSXParserMixin.parseExprOps (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:10921:23)
+      at JSXParserMixin.parseMaybeConditional (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:10898:23)
+      at JSXParserMixin.parseMaybeAssign (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:10848:21)
+      at JSXParserMixin.parseConditional (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:10910:29)
+      at JSXParserMixin.parseMaybeConditional (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:10902:17)
+      at JSXParserMixin.parseMaybeAssign (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:10848:21)
+      at JSXParserMixin.parseConditional (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:10910:29)
+      at JSXParserMixin.parseMaybeConditional (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:10902:17)
+      at JSXParserMixin.parseMaybeAssign (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:10848:21)
+      at JSXParserMixin.parseConditional (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:10910:29)
+      at JSXParserMixin.parseMaybeConditional (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:10902:17)
+      at JSXParserMixin.parseMaybeAssign (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:10848:21)
+      at JSXParserMixin.parseExpressionBase (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:10801:23)
+      at /home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:10797:39
+      at JSXParserMixin.allowInAnd (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:12443:12)
+      at JSXParserMixin.parseExpression (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:10797:17)
+      at JSXParserMixin.jsxParseExpressionContainer (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:4644:31)
+      at JSXParserMixin.jsxParseElementAt (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:4723:36)
+      at JSXParserMixin.jsxParseElementAt (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:4710:32)
+      at JSXParserMixin.jsxParseElement (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:4761:17)
+      at JSXParserMixin.parseExprAtom (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:4771:19)
+      at JSXParserMixin.parseExprSubscripts (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:11098:23)
+      at JSXParserMixin.parseUpdate (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:11083:21)
+      at JSXParserMixin.parseMaybeUnary (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:11063:23)
+      at JSXParserMixin.parseMaybeUnaryOrPrivate (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:10916:61)
+      at JSXParserMixin.parseExprOps (/home/antares/Projects/Aplicaciones_farmacia/sistema_calidad/frontend/node_modules/@babel/parser/lib/index.js:10921:23)
+11:11:09 PM [vite] hmr update /src/pages/odoo/OdooRecepciones.jsx, /src/index.css
