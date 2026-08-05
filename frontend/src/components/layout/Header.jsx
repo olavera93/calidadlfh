@@ -3,11 +3,11 @@ import { useLocation } from 'react-router-dom'
 import { ChevronRight, Search } from 'lucide-react'
 
 const ROUTE_MAP = {
-  '/':                   { section: null,        page: 'Inicio' },
+  '/':                   { section: null,      page: 'Inicio' },
   '/temperaturas':       { section: 'Monitoreo', page: 'Temperaturas' },
-  '/odoo/recepciones':   { section: 'Odoo',      page: 'Recepciones' },
-  '/odoo/vencimientos':  { section: 'Odoo',      page: 'Vencimientos' },
-  '/odoo/configuracion': { section: 'Odoo',      page: 'Configuración' },
+  '/odoo/recepciones':   { section: 'Odoo',    page: 'Recepciones' },
+  '/odoo/vencimientos':  { section: 'Odoo',    page: 'Vencimientos' },
+  '/configuracion':      { section: 'Sistema', page: 'Configuración' },
 }
 
 function useFormattedDate() {

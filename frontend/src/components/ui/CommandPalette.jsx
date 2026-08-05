@@ -5,11 +5,11 @@ import { useNavigate } from 'react-router-dom'
 import { CalendarX2, LayoutDashboard, Package, Settings, Thermometer } from 'lucide-react'
 
 const NAV = [
-  { id: 'dashboard',    label: 'Inicio',        keywords: 'home principal',         icon: LayoutDashboard, path: '/' },
-  { id: 'temperaturas', label: 'Temperaturas',  keywords: 'monitoreo sensor nevera', icon: Thermometer,    path: '/temperaturas' },
-  { id: 'recepciones',  label: 'Recepciones',   keywords: 'odoo stock entrada',      icon: Package,        path: '/odoo/recepciones' },
-  { id: 'vencimientos', label: 'Vencimientos',  keywords: 'odoo lotes expirar',      icon: CalendarX2,     path: '/odoo/vencimientos' },
-  { id: 'config',       label: 'Configuración', keywords: 'areas sedes ajustes',     icon: Settings,       path: '/odoo/configuracion' },
+  { id: 'dashboard',    label: 'Inicio',        keywords: 'home principal',              icon: LayoutDashboard, path: '/' },
+  { id: 'temperaturas', label: 'Temperaturas',  keywords: 'monitoreo sensor nevera',     icon: Thermometer,     path: '/temperaturas' },
+  { id: 'recepciones',  label: 'Recepciones',   keywords: 'odoo stock entrada',          icon: Package,         path: '/odoo/recepciones' },
+  { id: 'vencimientos', label: 'Vencimientos',  keywords: 'odoo lotes expirar',          icon: CalendarX2,      path: '/odoo/vencimientos' },
+  { id: 'config',       label: 'Configuración', keywords: 'areas sedes usuarios odoo api', icon: Settings,      path: '/configuracion' },
 ]
 
 export function CommandPalette({ open, onClose }) {

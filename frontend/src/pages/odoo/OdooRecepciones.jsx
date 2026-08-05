@@ -1,9 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react'
-import { Columns3, Download, EyeOff, History, PackageSearch, Search, X } from 'lucide-react'
-import { odoo } from '../../services/api'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { Columns3, Download, EyeOff, History, Lock, PackageSearch, Search, X } from 'lucide-react'
+import api, { odoo } from '../../services/api'
 import { cn } from '../../lib/utils'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { TableSkeleton } from '../../components/ui/Skeleton'
+import { useAuth } from '../../context/AuthContext'
 
 const LIMIT = 4000
 
@@ -62,6 +63,9 @@ function FilterChip({ label, icon: Icon, checked, onChange, title }) {
 }
 
 export default function OdooRecepciones() {
+  const { isAdmin, sedesPermitidas } = useAuth()
+  const [sedes, setSedes] = useState([])
+
   const [rows, setRows]         = useState([])
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState(null)
@@ -74,6 +78,29 @@ export default function OdooRecepciones() {
     destino:           DESTINO_OPTIONS[0].value,
     numero_movimiento: '',
   })
+
+  // Cargar sedes para poder mapear IDs → nombres
+  useEffect(() => {
+    api.get('/sedes').then(r => setSedes(r.data)).catch(() => {})
+  }, [])
+
+  // Opciones de destino según rol: admin ve todas, resto solo las de sus sedes
+  const allowedOptions = useMemo(() => {
+    if (isAdmin) return DESTINO_OPTIONS
+    const nombresPermitidos = sedes
+      .filter(s => sedesPermitidas.includes(s.id))
+      .map(s => normalizar(s.nombre))
+    return DESTINO_OPTIONS.filter(o =>
+      nombresPermitidos.some(n => n.includes(o.value))
+    )
+  }, [isAdmin, sedesPermitidas, sedes])
+
+  // Corregir destino seleccionado si no está en las opciones permitidas
+  useEffect(() => {
+    if (allowedOptions.length > 0 && !allowedOptions.find(o => o.value === filters.destino)) {
+      setFilters(f => ({ ...f, destino: allowedOptions[0].value }))
+    }
+  }, [allowedOptions])
 
   const [ocultarDevolucion, setOcultarDevolucion] = useState(true)
   const [ocultarVirtual,    setOcultarVirtual]    = useState(true)
@@ -180,9 +207,16 @@ export default function OdooRecepciones() {
           </div>
           <div className="space-y-1">
             <label className="block text-xs font-medium text-surface-500">Destino</label>
-            <select value={filters.destino} onChange={set('destino')} className="input-base w-36">
-              {DESTINO_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
+            {allowedOptions.length === 1 ? (
+              <div className="input-base w-36 flex items-center gap-1.5 text-surface-400 cursor-default select-none">
+                <Lock size={11} className="shrink-0" />
+                {allowedOptions[0].label}
+              </div>
+            ) : (
+              <select value={filters.destino} onChange={set('destino')} className="input-base w-36">
+                {allowedOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            )}
           </div>
           <div className="space-y-1">
             <label className="block text-xs font-medium text-surface-500">N° Movimiento</label>

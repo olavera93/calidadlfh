@@ -9,6 +9,7 @@ import Temperaturas from './pages/temperaturas/Temperaturas'
 import OdooRecepciones from './pages/odoo/OdooRecepciones'
 import OdooVencimientos from './pages/odoo/OdooVencimientos'
 import OdooConfiguracion from './pages/odoo/OdooConfiguracion'
+import Configuracion from './pages/configuracion/Configuracion'
 
 function ProtectedRoute({ children, adminOnly = false }) {
   const { token, isAdmin } = useAuth()
@@ -68,11 +69,12 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route path="/odoo/configuracion" element={<Navigate to="/configuracion" replace />} />
       <Route
-        path="/odoo/configuracion"
+        path="/configuracion"
         element={
-          <ProtectedRoute adminOnly>
-            <Layout><OdooConfiguracion /></Layout>
+          <ProtectedRoute>
+            <Layout><Configuracion /></Layout>
           </ProtectedRoute>
         }
       />

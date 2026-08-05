@@ -34,11 +34,11 @@ ok "MariaDB activa en puerto 3307"
 # ── Backend (FastAPI) ─────────────────────────────────────
 log "Iniciando backend FastAPI…"
 cd "$BACKEND"
-nohup venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload \
+nohup venv/bin/python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload \
     > "$ROOT/logs/backend.log" 2>&1 &
 BACKEND_PID=$!
-ok "Backend PID $BACKEND_PID  →  http://localhost:8000"
-ok "Docs API:  http://localhost:8000/docs"
+ok "Backend PID $BACKEND_PID  →  http://localhost:8001"
+ok "Docs API:  http://localhost:8001/docs"
 
 # ── Frontend (Vite) ───────────────────────────────────────
 log "Iniciando frontend React…"
@@ -56,7 +56,7 @@ echo ""
 echo -e "${GREEN}────────────────────────────────────────${RESET}"
 echo -e "${GREEN}  Aplicación corriendo                  ${RESET}"
 echo -e "${GREEN}  Frontend : http://localhost:5173       ${RESET}"
-echo -e "${GREEN}  API docs  : http://localhost:8000/docs ${RESET}"
+echo -e "${GREEN}  API docs  : http://localhost:8001/docs ${RESET}"
 echo -e "${GREEN}  Logs      : ./logs/                   ${RESET}"
 echo -e "${GREEN}  Para detener: ./stop.sh               ${RESET}"
 echo -e "${GREEN}────────────────────────────────────────${RESET}"
