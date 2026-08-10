@@ -10,6 +10,8 @@ import OdooRecepciones from './pages/odoo/OdooRecepciones'
 import OdooVencimientos from './pages/odoo/OdooVencimientos'
 import OdooConfiguracion from './pages/odoo/OdooConfiguracion'
 import Configuracion from './pages/configuracion/Configuracion'
+import ProductosView from './pages/ProductosView'
+import ProveedoresView from './pages/ProveedoresView'
 
 function ProtectedRoute({ children, adminOnly = false }) {
   const { token, isAdmin } = useAuth()
@@ -53,6 +55,28 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+<Route
+path="/Productos"
+element={
+  <ProtectedRoute>
+    <Layout> 
+      <ProductosView />
+    </Layout>
+  </ProtectedRoute> 
+}
+/> 
+
+<Route
+path="/Proveedores"
+element={
+  <ProtectedRoute>
+    <Layout>
+      <ProveedoresView />
+    </Layout>
+  </ProtectedRoute>
+}
+/>
+
       <Route
         path="/odoo/recepciones"
         element={

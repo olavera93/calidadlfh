@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
   Thermometer, LogOut, ChevronLeft, ChevronRight,
-  PackageCheck, CalendarX2, Settings, FlaskConical, LayoutDashboard,
+  PackageCheck, CalendarX2, Settings, FlaskConical, LayoutDashboard, Package, Users,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { cn } from '../../lib/utils'
@@ -84,7 +84,9 @@ export default function Sidebar() {
   return (
     <aside
       className={cn(
-        'shrink-0 min-h-screen bg-surface-900 text-surface-100 flex flex-col',
+        /* Ajuste clave para fijar el Sidebar */
+        'sticky top-0 h-screen z-40',
+        'shrink-0 bg-surface-900 text-surface-100 flex flex-col',
         'transition-[width] duration-250',
         collapsed ? 'w-14' : 'w-56',
       )}
@@ -127,10 +129,13 @@ export default function Sidebar() {
 
       {/* ── Navegación ── */}
       <nav className="flex-1 px-2 py-2 space-y-0.5 overflow-y-auto scrollbar-hide">
-        <NavItem to="/"                  icon={LayoutDashboard} label="Inicio"        collapsed={collapsed} />
+        <NavItem to="/"                   icon={LayoutDashboard} label="Inicio"        collapsed={collapsed} />
 
         <SectionLabel label="Monitoreo" collapsed={collapsed} />
         <NavItem to="/temperaturas"      icon={Thermometer}   label="Temperaturas"   collapsed={collapsed} />
+
+        <NavItem to="/Productos"         icon={Package}       label="Productos"      collapsed={collapsed} />
+        <NavItem to="/Proveedores"       icon={Users}         label="Proveedores"    collapsed={collapsed} />
 
         <SectionLabel label="Odoo" collapsed={collapsed} />
         <NavItem to="/odoo/recepciones"  icon={PackageCheck}  label="Recepciones"    collapsed={collapsed} />

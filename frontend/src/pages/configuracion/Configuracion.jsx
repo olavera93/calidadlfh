@@ -865,8 +865,8 @@ function TabOdoo() {
    PÁGINA PRINCIPAL
 ═══════════════════════════════════════════════════════════════ */
 const TABS = [
-  { key: 'areas',    label: 'Áreas',    Icon: Thermometer, adminOnly: false },
   { key: 'sedes',    label: 'Sedes',    Icon: Building2,   adminOnly: true },
+  { key: 'areas',    label: 'Áreas',    Icon: Thermometer, adminOnly: false },
   { key: 'usuarios', label: 'Usuarios', Icon: UserCog,     adminOnly: true },
   { key: 'odoo',     label: 'Odoo',     Icon: Link2,       adminOnly: true },
 ]

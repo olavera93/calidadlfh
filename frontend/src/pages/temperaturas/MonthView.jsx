@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, Thermometer, MapPin } from 'lucide-react'
+import { ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, Thermometer, MapPin, Calendar } from 'lucide-react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ReferenceLine, ReferenceArea, ResponsiveContainer,
@@ -62,6 +62,21 @@ function formatShortDate(fechaStr) {
   return new Date(y, m - 1, d).toLocaleDateString('es-CO', { day: 'numeric', month: 'short' })
 }
 
+/* ── Leyenda fija Mañana → Tarde → Noche ───────────────────── */
+const ORDEN_LEYENDA = ['Mañana', 'Tarde', 'Noche']
+function ChartLegend() {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 16, paddingTop: 12, fontSize: 12, color: '#64748b' }}>
+      {ORDEN_LEYENDA.map(m => (
+        <span key={m} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: MOMENTO_COLORS[m], flexShrink: 0 }} />
+          {m}
+        </span>
+      ))}
+    </div>
+  )
+}
+
 /* ── Tooltip custom del chart ───────────────────────────────── */
 function ChartTooltip({ active, payload, label, unit = '°C' }) {
   if (!active || !payload?.length) return null
@@ -121,11 +136,7 @@ function TempChart({ data, area, yearMonth }) {
             unit="°"
           />
           <Tooltip content={<ChartTooltip unit="°C" />} />
-          <Legend
-            wrapperStyle={{ fontSize: 12, paddingTop: 12, color: '#64748b' }}
-            iconType="circle"
-            iconSize={8}
-          />
+          <Legend content={<ChartLegend />} />
 
           {/* Banda verde de zona segura */}
           {area.temp_min != null && area.temp_max != null && (
@@ -202,7 +213,7 @@ function HumChart({ data, area, yearMonth }) {
             domain={[0, 100]}
           />
           <Tooltip content={<ChartTooltip unit="%" />} />
-          <Legend wrapperStyle={{ fontSize: 12, paddingTop: 12, color: '#64748b' }} iconType="circle" iconSize={8} />
+          <Legend content={<ChartLegend />} />
 
           {area.humedad_min != null && area.humedad_max != null && (
             <ReferenceArea y1={area.humedad_min} y2={area.humedad_max} fill="#06b6d4" fillOpacity={0.07} stroke="none" />
@@ -269,7 +280,8 @@ export default function MonthView({ sedeId, areas }) {
       .forEach(r => {
         const day = parseInt(r.fecha.split('-')[2], 10)
         const m = getMomentoLabel(r.hora)
-        if (!byDay[day]) byDay[day] = { day }
+        // Inicializar con claves en orden fijo para que Recharts respete Mañana → Tarde → Noche
+        if (!byDay[day]) byDay[day] = { day, 'Mañana': undefined, 'Tarde': undefined, 'Noche': undefined }
         byDay[day][m] = r.temperatura
       })
     return Object.values(byDay).sort((a, b) => a.day - b.day)
@@ -283,7 +295,7 @@ export default function MonthView({ sedeId, areas }) {
       .forEach(r => {
         const day = parseInt(r.fecha.split('-')[2], 10)
         const m = getMomentoLabel(r.hora)
-        if (!byDay[day]) byDay[day] = { day }
+        if (!byDay[day]) byDay[day] = { day, 'Mañana': undefined, 'Tarde': undefined, 'Noche': undefined }
         byDay[day][m] = r.humedad
       })
     return Object.values(byDay).sort((a, b) => a.day - b.day)
@@ -316,6 +328,15 @@ export default function MonthView({ sedeId, areas }) {
           <button onClick={() => setYearMonth(shiftMonth(yearMonth, 1))} className="p-1.5 rounded-lg hover:bg-surface-100 transition-colors">
             <ChevronRight size={17} className="text-surface-500" />
           </button>
+          <label className="relative cursor-pointer text-surface-400 hover:text-brand-500 transition-colors p-1.5 rounded-lg hover:bg-surface-100" title="Seleccionar mes">
+            <Calendar size={16} />
+            <input
+              type="month"
+              value={yearMonth}
+              onChange={e => e.target.value && setYearMonth(e.target.value)}
+              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+            />
+          </label>
         </div>
         <div className="flex items-center gap-2">
           {loading && <span className="text-xs text-brand-500">Cargando…</span>}

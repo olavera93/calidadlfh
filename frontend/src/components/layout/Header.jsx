@@ -20,7 +20,7 @@ function useFormattedDate() {
 
 export default function Header({ onOpenCommand }) {
   const { pathname } = useLocation()
-  const route = ROUTE_MAP[pathname] ?? { section: null, page: 'Inicio' }
+  const route = ROUTE_MAP[pathname] ?? { section: null, page: '' }
   const date = useFormattedDate()
 
   return (
