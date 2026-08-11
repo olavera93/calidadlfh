@@ -8,6 +8,11 @@ class Documento(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     nombre_docu = Column(String(255), nullable=False)
+    ruta_archivo = Column(String(255), nullable=True)
+    mime_type = Column(String(100), nullable=True)
+
+
+    
 
     # Llaves foráneas
     producto_id = Column(Integer, ForeignKey("producto.id"), nullable=True)

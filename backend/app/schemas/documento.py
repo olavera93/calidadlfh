@@ -38,6 +38,8 @@ class DocumentoResponse(BaseModel):
     etiquetas: Optional[List[str]]
     producto: Optional[ProductoNested]
     proveedor: Optional[ProveedorNested]
+    ruta_archivo: Optional[str] = None
+    mime_type: Optional[str] = None
 
     class Config:
         from_attributes = True

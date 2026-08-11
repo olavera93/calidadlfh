@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Beaker, Package, FileText, Tag, Mail, Phone, MapPin, Plus, X } from 'lucide-react'
+import { ArrowLeft, Beaker, Package, FileText, Tag, Mail, Phone, MapPin, Plus, X, Download, Paperclip, ExternalLink } from 'lucide-react'
 import api from '../services/api'
 import { EmptyState } from '../components/ui/EmptyState'
 
@@ -11,8 +11,15 @@ import { EmptyState } from '../components/ui/EmptyState'
  *  - Datos de contacto del proveedor
  *  - Laboratorios que maneja (derivados de sus productos) y los productos de cada uno
  *  - Documentos asignados al proveedor (directos o a través de sus productos)
- *  - Modal para crear un nuevo documento asociado directamente al proveedor
+ *  - Modal para crear un nuevo documento asociado directamente al proveedor, con archivo adjunto
+ *  - Modal para previsualizar el archivo de un documento antes de descargarlo
  */
+
+const MAX_FILE_SIZE_MB = 10
+const ACCEPTED_EXTENSIONS = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx'
+const IMAGE_EXTENSION_REGEX = /\.(jpg|jpeg|png|gif|webp)$/i
+const OFFICE_EXTENSION_REGEX = /\.(doc|docx|xls|xlsx|ppt|pptx)$/i
+
 export default function ProveedorDetalleView() {
   const { id: proveedorId } = useParams()
   const navigate = useNavigate()
@@ -28,8 +35,14 @@ export default function ProveedorDetalleView() {
   const [tagInput, setTagInput] = useState('')
   const [formDocumento, setFormDocumento] = useState({
     nombre_docu: '',
-    etiquetas: []
+    etiquetas: [],
+    archivo: null
   })
+  const [fileError, setFileError] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  /* ── Estado para el Modal de Vista Previa de Archivo ─────── */
+  const [docPreview, setDocPreview] = useState(null) // { id, nombre, url }
 
   /* ── Cargar datos ─────────────────────────────────────────── */
   const fetchData = useCallback(async () => {
@@ -114,32 +127,86 @@ export default function ProveedorDetalleView() {
     }))
   }
 
+  /* ── Manejo de Archivo ────────────────────────────────────── */
+  const handleFileChange = (e) => {
+    const file = e.target.files[0]
+    setFileError('')
+
+    if (!file) {
+      setFormDocumento((prev) => ({ ...prev, archivo: null }))
+      return
+    }
+
+    const sizeMB = file.size / (1024 * 1024)
+    if (sizeMB > MAX_FILE_SIZE_MB) {
+      setFileError(`El archivo supera el límite de ${MAX_FILE_SIZE_MB}MB.`)
+      e.target.value = ''
+      setFormDocumento((prev) => ({ ...prev, archivo: null }))
+      return
+    }
+
+    setFormDocumento((prev) => ({ ...prev, archivo: file }))
+  }
+
   /* ── Abrir y Guardar Modal ───────────────────────────────── */
   const handleOpenModal = () => {
     setFormDocumento({
       nombre_docu: '',
-      etiquetas: []
+      etiquetas: [],
+      archivo: null
     })
     setTagInput('')
+    setFileError('')
     setShowModalDocumento(true)
   }
 
   const handleSaveDocumento = async (e) => {
     e.preventDefault()
-    try {
-      const payload = {
-        nombre_docu: formDocumento.nombre_docu,
-        etiquetas: formDocumento.etiquetas,
-        proveedor_id: Number(proveedorId), // Se asocia directamente a este proveedor
-        producto_id: null
-      }
 
-      await api.post('/documentos/', payload)
+    if (!formDocumento.archivo) {
+      setFileError('Debes adjuntar un archivo.')
+      return
+    }
+
+    setSaving(true)
+    try {
+      const data = new FormData()
+      data.append('nombre_docu', formDocumento.nombre_docu)
+      data.append('etiquetas', JSON.stringify(formDocumento.etiquetas))
+      data.append('proveedor_id', proveedorId) // Se asocia directamente a este proveedor
+      data.append('archivo', formDocumento.archivo)
+
+      await api.post('/documentos/', data, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
       setShowModalDocumento(false)
       fetchData() // Recarga los documentos actualizados
     } catch (err) {
       alert(err.response?.data?.detail || 'Error al guardar el documento')
+    } finally {
+      setSaving(false)
     }
+  }
+
+  /* ── Vista Previa de Archivo ─────────────────────────────── */
+  // Cambia a `true` si prefieres que el clic abra directo en pestaña nueva
+  // en vez de mostrar el modal con iframe (más simple y sin problemas de CORS/embebido).
+  const ABRIR_EN_PESTANA_NUEVA = false
+
+  const handleOpenPreview = (doc) => {
+    if (!doc.ruta_archivo) return
+    const url = `${api.defaults.baseURL}/documentos/${doc.id}/ver`
+
+    if (ABRIR_EN_PESTANA_NUEVA) {
+      window.open(url, '_blank', 'noopener,noreferrer')
+      return
+    }
+
+    setDocPreview({
+      id: doc.id,
+      nombre: doc.nombre_docu,
+      url
+    })
   }
 
   if (loading && !proveedor) {
@@ -248,30 +315,48 @@ export default function ProveedorDetalleView() {
           <ul className="divide-y divide-surface-100">
             {documentosDelProveedor.map((doc) => (
               <li key={doc.id} className="py-2.5 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 min-w-0">
-                  <FileText size={14} className="text-surface-400 shrink-0" />
+                <button
+                  type="button"
+                  onClick={() => handleOpenPreview(doc)}
+                  disabled={!doc.ruta_archivo}
+                  className="flex items-center gap-2 min-w-0 text-left group disabled:cursor-not-allowed"
+                  title={doc.ruta_archivo ? 'Ver archivo' : 'Sin archivo adjunto'}
+                >
+                  <FileText
+                    size={14}
+                    className={`shrink-0 ${doc.ruta_archivo ? 'text-brand-400 group-hover:text-brand-600' : 'text-surface-300'}`}
+                  />
                   <div className="min-w-0">
-                    <p className="text-xs font-medium text-surface-800 truncate">{doc.nombre_docu}</p>
+                    <p
+                      className={`text-xs font-medium truncate ${
+                        doc.ruta_archivo ? 'text-surface-800 group-hover:text-brand-600 group-hover:underline' : 'text-surface-500'
+                      }`}
+                    >
+                      {doc.nombre_docu}
+                    </p>
                     {doc.producto && (
                       <p className="text-[11px] text-surface-500">
                         Vía producto: {doc.producto.nombre} ({doc.producto.laboratorio || 'Sin lab'})
                       </p>
                     )}
                   </div>
+                </button>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {Array.isArray(doc.etiquetas) && doc.etiquetas.length > 0 && (
+                    <div className="flex flex-wrap gap-1 justify-end">
+                      {doc.etiquetas.map((tag, idx) => (
+                        <span
+                          key={idx}
+                          className="bg-brand-50 text-brand-700 text-[10px] px-1.5 py-0.5 rounded-md flex items-center gap-1 font-medium border border-brand-100"
+                        >
+                          <Tag size={10} />
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                {Array.isArray(doc.etiquetas) && doc.etiquetas.length > 0 && (
-                  <div className="flex flex-wrap gap-1 shrink-0">
-                    {doc.etiquetas.map((tag, idx) => (
-                      <span
-                        key={idx}
-                        className="bg-brand-50 text-brand-700 text-[10px] px-1.5 py-0.5 rounded-md flex items-center gap-1 font-medium border border-brand-100"
-                      >
-                        <Tag size={10} />
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
               </li>
             ))}
           </ul>
@@ -305,6 +390,31 @@ export default function ProveedorDetalleView() {
                   placeholder="Ej. Certificacion_BPM_2026.pdf"
                   className="input-base w-full mt-1"
                 />
+              </div>
+
+              {/* ARCHIVO */}
+              <div>
+                <label className="text-xs font-semibold text-surface-600">Archivo *</label>
+                <label className="mt-1 flex items-center gap-2 border border-dashed border-surface-300 rounded-xl px-3 py-3 cursor-pointer hover:border-brand-400 hover:bg-brand-50/30 transition-colors">
+                  <Paperclip size={15} className="text-surface-400 shrink-0" />
+                  <span className="text-xs text-surface-500 truncate flex-1">
+                    {formDocumento.archivo ? formDocumento.archivo.name : 'Selecciona un archivo (PDF, imagen, Word, Excel)'}
+                  </span>
+                  <input
+                    type="file"
+                    accept={ACCEPTED_EXTENSIONS}
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                </label>
+                {formDocumento.archivo && (
+                  <p className="text-[11px] text-surface-400 mt-1">
+                    {(formDocumento.archivo.size / 1024).toFixed(0)} KB
+                  </p>
+                )}
+                {fileError && (
+                  <p className="text-[11px] text-danger-500 mt-1">{fileError}</p>
+                )}
               </div>
 
               {/* ETIQUETAS */}
@@ -348,12 +458,70 @@ export default function ProveedorDetalleView() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-brand-500 text-white hover:bg-brand-600 transition-colors shadow-sm"
+                  disabled={saving}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-brand-500 text-white hover:bg-brand-600 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Guardar
+                  {saving ? 'Guardando...' : 'Guardar'}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL VISTA PREVIA DE ARCHIVO */}
+      {docPreview && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-4xl h-[85vh] flex flex-col shadow-modal border border-surface-100 overflow-hidden">
+            <div className="flex justify-between items-center px-5 py-3 border-b border-surface-100 shrink-0">
+              <p className="text-sm font-semibold text-surface-800 truncate">{docPreview.nombre}</p>
+              <div className="flex items-center gap-3 shrink-0">
+                <a
+                  href={docPreview.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-medium text-surface-500 hover:text-surface-700 flex items-center gap-1"
+                >
+                  <ExternalLink size={13} /> Nueva pestaña
+                </a>
+                <a
+                  href={`${docPreview.url}?download=1`}
+                  className="text-xs font-medium text-brand-600 hover:text-brand-700 flex items-center gap-1"
+                >
+                  <Download size={13} /> Descargar
+                </a>
+                <button
+                  onClick={() => setDocPreview(null)}
+                  className="text-surface-400 hover:text-surface-600 transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-hidden bg-surface-50">
+              {IMAGE_EXTENSION_REGEX.test(docPreview.nombre) ? (
+                <div className="w-full h-full flex items-center justify-center p-4">
+                  <img
+                    src={docPreview.url}
+                    alt={docPreview.nombre}
+                    className="max-w-full max-h-full object-contain rounded-lg"
+                  />
+                </div>
+              ) : OFFICE_EXTENSION_REGEX.test(docPreview.nombre) ? (
+                <iframe
+                  src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(docPreview.url)}`}
+                  title={docPreview.nombre}
+                  className="w-full h-full border-0"
+                />
+              ) : (
+                <iframe
+                  src={docPreview.url}
+                  title={docPreview.nombre}
+                  className="w-full h-full border-0"
+                />
+              )}
+            </div>
           </div>
         </div>
       )}

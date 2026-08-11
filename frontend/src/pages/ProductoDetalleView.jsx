@@ -11,10 +11,18 @@ import {
   Phone,
   MapPin,
   Plus,
-  X
+  X,
+  Download,
+  Paperclip,
+  ExternalLink
 } from 'lucide-react'
 import api from '../services/api'
 import { EmptyState } from '../components/ui/EmptyState'
+
+const MAX_FILE_SIZE_MB = 10
+const ACCEPTED_EXTENSIONS = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx'
+const IMAGE_EXTENSION_REGEX = /\.(jpg|jpeg|png|gif|webp|bmp)$/i
+const OFFICE_EXTENSION_REGEX = /\.(doc|docx|xls|xlsx|ppt|pptx)$/i
 
 export default function ProductoDetalleView() {
   const { id: productoId } = useParams()
@@ -30,8 +38,18 @@ export default function ProductoDetalleView() {
   const [tagInput, setTagInput] = useState('')
   const [formDocumento, setFormDocumento] = useState({
     nombre_docu: '',
-    etiquetas: []
+    etiquetas: [],
+    archivo: null
   })
+  const [fileError, setFileError] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  // 2. Estado para el modal de vista previa de archivo
+  const [docPreview, setDocPreview] = useState(null) // { id, nombre, url }
+
+  // Cambia a `true` si prefieres que el clic abra directo en pestaña nueva
+  // en vez de mostrar el modal con iframe.
+  const ABRIR_EN_PESTANA_NUEVA = false
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -90,32 +108,82 @@ export default function ProductoDetalleView() {
     }))
   }
 
+  /* ── Manejo de Archivo ── */
+  const handleFileChange = (e) => {
+    const file = e.target.files[0]
+    setFileError('')
+
+    if (!file) {
+      setFormDocumento((prev) => ({ ...prev, archivo: null }))
+      return
+    }
+
+    const sizeMB = file.size / (1024 * 1024)
+    if (sizeMB > MAX_FILE_SIZE_MB) {
+      setFileError(`El archivo supera el límite de ${MAX_FILE_SIZE_MB}MB.`)
+      e.target.value = ''
+      setFormDocumento((prev) => ({ ...prev, archivo: null }))
+      return
+    }
+
+    setFormDocumento((prev) => ({ ...prev, archivo: file }))
+  }
+
   /* ── Abrir y Guardar Modal ── */
   const handleOpenModal = () => {
     setFormDocumento({
       nombre_docu: '',
-      etiquetas: []
+      etiquetas: [],
+      archivo: null
     })
     setTagInput('')
+    setFileError('')
     setShowModalDocumento(true)
   }
 
   const handleSaveDocumento = async (e) => {
     e.preventDefault()
-    try {
-      const payload = {
-        nombre_docu: formDocumento.nombre_docu,
-        etiquetas: formDocumento.etiquetas,
-        producto_id: Number(productoId),
-        proveedor_id: null
-      }
 
-      await api.post('/documentos/', payload)
+    if (!formDocumento.archivo) {
+      setFileError('Debes adjuntar un archivo.')
+      return
+    }
+
+    setSaving(true)
+    try {
+      const data = new FormData()
+      data.append('nombre_docu', formDocumento.nombre_docu)
+      data.append('etiquetas', JSON.stringify(formDocumento.etiquetas))
+      data.append('producto_id', productoId)
+      data.append('archivo', formDocumento.archivo)
+
+      await api.post('/documentos/', data, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
       setShowModalDocumento(false)
       fetchData()
     } catch (err) {
       alert(err.response?.data?.detail || 'Error al guardar el documento')
+    } finally {
+      setSaving(false)
     }
+  }
+
+  /* ── Vista Previa de Archivo ── */
+  const handleOpenPreview = (doc) => {
+    if (!doc.ruta_archivo) return
+    const url = `${api.defaults.baseURL}/documentos/${doc.id}/ver`
+
+    if (ABRIR_EN_PESTANA_NUEVA) {
+      window.open(url, '_blank', 'noopener,noreferrer')
+      return
+    }
+
+    setDocPreview({
+      id: doc.id,
+      nombre: doc.nombre_docu,
+      url
+    })
   }
 
   if (loading && !producto) {
@@ -249,12 +317,28 @@ export default function ProductoDetalleView() {
           <ul className="divide-y divide-surface-100">
             {documentosDelProducto.map((doc) => (
               <li key={doc.id} className="py-2.5 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 min-w-0">
-                  <FileText size={14} className="text-surface-400 shrink-0" />
+                <button
+                  type="button"
+                  onClick={() => handleOpenPreview(doc)}
+                  disabled={!doc.ruta_archivo}
+                  className="flex items-center gap-2 min-w-0 text-left group disabled:cursor-not-allowed"
+                  title={doc.ruta_archivo ? 'Ver archivo' : 'Sin archivo adjunto'}
+                >
+                  <FileText
+                    size={14}
+                    className={`shrink-0 ${doc.ruta_archivo ? 'text-brand-400 group-hover:text-brand-600' : 'text-surface-300'}`}
+                  />
                   <div className="min-w-0">
-                    <p className="text-xs font-medium text-surface-800 truncate">{doc.nombre_docu}</p>
+                    <p
+                      className={`text-xs font-medium truncate ${
+                        doc.ruta_archivo ? 'text-surface-800 group-hover:text-brand-600 group-hover:underline' : 'text-surface-500'
+                      }`}
+                    >
+                      {doc.nombre_docu}
+                    </p>
                   </div>
-                </div>
+                </button>
+
                 {Array.isArray(doc.etiquetas) && doc.etiquetas.length > 0 && (
                   <div className="flex flex-wrap gap-1 shrink-0">
                     {doc.etiquetas.map((tag, idx) => (
@@ -303,6 +387,31 @@ export default function ProductoDetalleView() {
                 />
               </div>
 
+              {/* ARCHIVO */}
+              <div>
+                <label className="text-xs font-semibold text-surface-600">Archivo *</label>
+                <label className="mt-1 flex items-center gap-2 border border-dashed border-surface-300 rounded-xl px-3 py-3 cursor-pointer hover:border-brand-400 hover:bg-brand-50/30 transition-colors">
+                  <Paperclip size={15} className="text-surface-400 shrink-0" />
+                  <span className="text-xs text-surface-500 truncate flex-1">
+                    {formDocumento.archivo ? formDocumento.archivo.name : 'Selecciona un archivo (PDF, imagen, Word, Excel)'}
+                  </span>
+                  <input
+                    type="file"
+                    accept={ACCEPTED_EXTENSIONS}
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                </label>
+                {formDocumento.archivo && (
+                  <p className="text-[11px] text-surface-400 mt-1">
+                    {(formDocumento.archivo.size / 1024).toFixed(0)} KB
+                  </p>
+                )}
+                {fileError && (
+                  <p className="text-[11px] text-danger-500 mt-1">{fileError}</p>
+                )}
+              </div>
+
               {/* ETIQUETAS */}
               <div>
                 <label className="text-xs font-semibold text-surface-600">Etiquetas (Presiona Enter o Coma)</label>
@@ -344,12 +453,70 @@ export default function ProductoDetalleView() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-brand-500 text-white hover:bg-brand-600 transition-colors shadow-sm"
+                  disabled={saving}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-brand-500 text-white hover:bg-brand-600 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Guardar
+                  {saving ? 'Guardando...' : 'Guardar'}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL VISTA PREVIA DE ARCHIVO */}
+      {docPreview && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-4xl h-[85vh] flex flex-col shadow-modal border border-surface-100 overflow-hidden">
+            <div className="flex justify-between items-center px-5 py-3 border-b border-surface-100 shrink-0">
+              <p className="text-sm font-semibold text-surface-800 truncate">{docPreview.nombre}</p>
+              <div className="flex items-center gap-3 shrink-0">
+                <a
+                  href={docPreview.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-medium text-surface-500 hover:text-surface-700 flex items-center gap-1"
+                >
+                  <ExternalLink size={13} /> Nueva pestaña
+                </a>
+                <a
+                  href={`${docPreview.url}?download=1`}
+                  className="text-xs font-medium text-brand-600 hover:text-brand-700 flex items-center gap-1"
+                >
+                  <Download size={13} /> Descargar
+                </a>
+                <button
+                  onClick={() => setDocPreview(null)}
+                  className="text-surface-400 hover:text-surface-600 transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-hidden bg-surface-50">
+              {IMAGE_EXTENSION_REGEX.test(docPreview.nombre) ? (
+                <div className="w-full h-full flex items-center justify-center p-4">
+                  <img
+                    src={docPreview.url}
+                    alt={docPreview.nombre}
+                    className="max-w-full max-h-full object-contain rounded-lg"
+                  />
+                </div>
+              ) : OFFICE_EXTENSION_REGEX.test(docPreview.nombre) ? (
+                <iframe
+                  src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(docPreview.url)}`}
+                  title={docPreview.nombre}
+                  className="w-full h-full border-0"
+                />
+              ) : (
+                <iframe
+                  src={docPreview.url}
+                  title={docPreview.nombre}
+                  className="w-full h-full border-0"
+                />
+              )}
+            </div>
           </div>
         </div>
       )}

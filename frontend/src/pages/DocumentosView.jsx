@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react'
-import { Plus, Search, Edit2, Trash2, FileText, X, Upload, Download, Tag } from 'lucide-react'
+import { Plus, Search, Edit2, Trash2, FileText, X, Upload, Download, Tag, Paperclip, ExternalLink } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import api from '../services/api'
 import { EmptyState } from '../components/ui/EmptyState'
@@ -7,6 +7,11 @@ import Paginator from '../components/ui/Paginator'
 import ExcelPreviewModal from '../components/ui/ExcelPreviewModal'
 import { ExcelExportButton } from '../components/ui/ExcelActions'
 import { useNavigate } from 'react-router-dom'
+
+const MAX_FILE_SIZE_MB = 10
+const ACCEPTED_EXTENSIONS = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx'
+const IMAGE_EXTENSION_REGEX = /\.(jpg|jpeg|png|gif|webp|bmp)$/i
+const OFFICE_EXTENSION_REGEX = /\.(doc|docx|xls|xlsx|ppt|pptx)$/i
 
 export default function DocumentosView() {
   // Datos principales
@@ -34,6 +39,14 @@ export default function DocumentosView() {
   const [showModalDocumento, setShowModalDocumento] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
   const [tagInput, setTagInput] = useState('')
+  const [archivoDocumento, setArchivoDocumento] = useState(null)
+  const [archivoError, setArchivoError] = useState('')
+  const [savingDocumento, setSavingDocumento] = useState(false)
+
+  // Modal Vista Previa de Archivo
+  const [docPreview, setDocPreview] = useState(null) // { id, nombre, url }
+  // Cambia a `true` si prefieres que el clic abra directo en pestaña nueva en vez del modal
+  const ABRIR_EN_PESTANA_NUEVA = false
 
   // Modal Excel State
   const [showExcelModal, setShowExcelModal] = useState(false)
@@ -165,6 +178,27 @@ export default function DocumentosView() {
     }))
   }
 
+  /* ── Manejo de Archivo Adjunto del Documento ───────────────── */
+  const handleArchivoDocumentoChange = (e) => {
+    const file = e.target.files[0]
+    setArchivoError('')
+
+    if (!file) {
+      setArchivoDocumento(null)
+      return
+    }
+
+    const sizeMB = file.size / (1024 * 1024)
+    if (sizeMB > MAX_FILE_SIZE_MB) {
+      setArchivoError(`El archivo supera el límite de ${MAX_FILE_SIZE_MB}MB.`)
+      e.target.value = ''
+      setArchivoDocumento(null)
+      return
+    }
+
+    setArchivoDocumento(file)
+  }
+
   /* ── Exportar: Abrir Modal Previo ──────────────────────────── */
   const handleOpenExportModal = () => {
     const docsAExportar =
@@ -282,25 +316,50 @@ export default function DocumentosView() {
   /* ── Guardado ─────────────────────────────────────────────── */
   const handleSaveDocumento = async (e) => {
     e.preventDefault()
-    try {
-      const esProducto = formDocumento.tipo_asociacion === 'producto'
+    const esProducto = formDocumento.tipo_asociacion === 'producto'
 
-      const payload = {
-        nombre_docu: formDocumento.nombre_docu,
-        etiquetas: formDocumento.etiquetas,
-        producto_id: esProducto && formDocumento.producto_id ? Number(formDocumento.producto_id) : null,
-        proveedor_id: !esProducto && formDocumento.proveedor_id ? Number(formDocumento.proveedor_id) : null
-      }
-
-      if (editingItem) {
+    if (editingItem) {
+      // Edición: solo metadatos, el backend aún no soporta reemplazar el archivo aquí.
+      try {
+        const payload = {
+          nombre_docu: formDocumento.nombre_docu,
+          etiquetas: formDocumento.etiquetas,
+          producto_id: esProducto && formDocumento.producto_id ? Number(formDocumento.producto_id) : null,
+          proveedor_id: !esProducto && formDocumento.proveedor_id ? Number(formDocumento.proveedor_id) : null
+        }
         await api.put(`/documentos/${editingItem.id}`, payload)
-      } else {
-        await api.post('/documentos/', payload)
+        setShowModalDocumento(false)
+        fetchData()
+      } catch (err) {
+        alert(err.response?.data?.detail || 'Error al guardar el documento')
       }
+      return
+    }
+
+    // Creación: requiere archivo adjunto, se envía como FormData
+    if (!archivoDocumento) {
+      setArchivoError('Debes adjuntar un archivo.')
+      return
+    }
+
+    setSavingDocumento(true)
+    try {
+      const data = new FormData()
+      data.append('nombre_docu', formDocumento.nombre_docu)
+      data.append('etiquetas', JSON.stringify(formDocumento.etiquetas))
+      if (esProducto && formDocumento.producto_id) data.append('producto_id', formDocumento.producto_id)
+      if (!esProducto && formDocumento.proveedor_id) data.append('proveedor_id', formDocumento.proveedor_id)
+      data.append('archivo', archivoDocumento)
+
+      await api.post('/documentos/', data, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
       setShowModalDocumento(false)
       fetchData()
     } catch (err) {
       alert(err.response?.data?.detail || 'Error al guardar el documento')
+    } finally {
+      setSavingDocumento(false)
     }
   }
 
@@ -339,7 +398,26 @@ export default function DocumentosView() {
       })
     }
     setTagInput('')
+    setArchivoDocumento(null)
+    setArchivoError('')
     setShowModalDocumento(true)
+  }
+
+  /* ── Vista Previa de Archivo ──────────────────────────────── */
+  const handleOpenPreview = (doc) => {
+    if (!doc.ruta_archivo) return
+    const url = `${api.defaults.baseURL}/documentos/${doc.id}/ver`
+
+    if (ABRIR_EN_PESTANA_NUEVA) {
+      window.open(url, '_blank', 'noopener,noreferrer')
+      return
+    }
+
+    setDocPreview({
+      id: doc.id,
+      nombre: doc.nombre_docu,
+      url
+    })
   }
 
   return (
@@ -479,10 +557,21 @@ export default function DocumentosView() {
                         />
                       </td>
                       <td className="px-4 py-2.5 font-medium text-surface-800">
-                        <div className="flex items-center gap-2">
-                          <FileText size={16} className="text-brand-500 shrink-0" />
-                          <span>{doc.nombre_docu}</span>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenPreview(doc)}
+                          disabled={!doc.ruta_archivo}
+                          className="flex items-center gap-2 text-left group disabled:cursor-not-allowed"
+                          title={doc.ruta_archivo ? 'Ver archivo' : 'Sin archivo adjunto'}
+                        >
+                          <FileText
+                            size={16}
+                            className={`shrink-0 ${doc.ruta_archivo ? 'text-brand-500' : 'text-surface-300'}`}
+                          />
+                          <span className={doc.ruta_archivo ? 'group-hover:text-brand-600 group-hover:underline transition-colors' : ''}>
+                            {doc.nombre_docu}
+                          </span>
+                        </button>
                       </td>
                      <td className="px-4 py-2.5 text-surface-700">
   {prod ? (
@@ -680,6 +769,40 @@ export default function DocumentosView() {
                 </div>
               )}
 
+              {/* ARCHIVO */}
+              {editingItem ? (
+                editingItem.ruta_archivo && (
+                  <div className="text-xs text-surface-500 bg-surface-50 border border-surface-100 rounded-xl px-3 py-2 flex items-center gap-2">
+                    <Paperclip size={13} className="text-surface-400 shrink-0" />
+                    Archivo actual adjunto. Reemplazar el archivo no está disponible aún al editar.
+                  </div>
+                )
+              ) : (
+                <div>
+                  <label className="text-xs font-semibold text-surface-600">Archivo *</label>
+                  <label className="mt-1 flex items-center gap-2 border border-dashed border-surface-300 rounded-xl px-3 py-3 cursor-pointer hover:border-brand-400 hover:bg-brand-50/30 transition-colors">
+                    <Paperclip size={15} className="text-surface-400 shrink-0" />
+                    <span className="text-xs text-surface-500 truncate flex-1">
+                      {archivoDocumento ? archivoDocumento.name : 'Selecciona un archivo (PDF, imagen, Word, Excel)'}
+                    </span>
+                    <input
+                      type="file"
+                      accept={ACCEPTED_EXTENSIONS}
+                      onChange={handleArchivoDocumentoChange}
+                      className="hidden"
+                    />
+                  </label>
+                  {archivoDocumento && (
+                    <p className="text-[11px] text-surface-400 mt-1">
+                      {(archivoDocumento.size / 1024).toFixed(0)} KB
+                    </p>
+                  )}
+                  {archivoError && (
+                    <p className="text-[11px] text-danger-500 mt-1">{archivoError}</p>
+                  )}
+                </div>
+              )}
+
               {/* ETIQUETAS */}
               <div>
                 <label className="text-xs font-semibold text-surface-600">Etiquetas (Presiona Enter o Coma)</label>
@@ -721,12 +844,70 @@ export default function DocumentosView() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-brand-500 text-white hover:bg-brand-600 transition-colors shadow-sm"
+                  disabled={savingDocumento}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-brand-500 text-white hover:bg-brand-600 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Guardar
+                  {savingDocumento ? 'Guardando...' : 'Guardar'}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL VISTA PREVIA DE ARCHIVO */}
+      {docPreview && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-4xl h-[85vh] flex flex-col shadow-modal border border-surface-100 overflow-hidden">
+            <div className="flex justify-between items-center px-5 py-3 border-b border-surface-100 shrink-0">
+              <p className="text-sm font-semibold text-surface-800 truncate">{docPreview.nombre}</p>
+              <div className="flex items-center gap-3 shrink-0">
+                <a
+                  href={docPreview.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-medium text-surface-500 hover:text-surface-700 flex items-center gap-1"
+                >
+                  <ExternalLink size={13} /> Nueva pestaña
+                </a>
+                <a
+                  href={`${docPreview.url}?download=1`}
+                  className="text-xs font-medium text-brand-600 hover:text-brand-700 flex items-center gap-1"
+                >
+                  <Download size={13} /> Descargar
+                </a>
+                <button
+                  onClick={() => setDocPreview(null)}
+                  className="text-surface-400 hover:text-surface-600 transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-hidden bg-surface-50">
+              {IMAGE_EXTENSION_REGEX.test(docPreview.nombre) ? (
+                <div className="w-full h-full flex items-center justify-center p-4">
+                  <img
+                    src={docPreview.url}
+                    alt={docPreview.nombre}
+                    className="max-w-full max-h-full object-contain rounded-lg"
+                  />
+                </div>
+              ) : OFFICE_EXTENSION_REGEX.test(docPreview.nombre) ? (
+                <iframe
+                  src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(docPreview.url)}`}
+                  title={docPreview.nombre}
+                  className="w-full h-full border-0"
+                />
+              ) : (
+                <iframe
+                  src={docPreview.url}
+                  title={docPreview.nombre}
+                  className="w-full h-full border-0"
+                />
+              )}
+            </div>
           </div>
         </div>
       )}
