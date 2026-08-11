@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Plus, Search, Edit2, Trash2, Truck, Mail, Phone, MapPin, X, Upload, Download } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import api from '../services/api'
@@ -8,6 +9,7 @@ import ExcelPreviewModal from '../components/ui/ExcelPreviewModal'
 import { ExcelExportButton } from '../components/ui/ExcelActions'
 
 export default function ProveedoresView() {
+  const navigate = useNavigate()
   const [proveedores, setProveedores] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -396,7 +398,15 @@ export default function ProveedoresView() {
                     <td className="px-5 py-3 font-mono text-xs font-bold text-surface-600 whitespace-nowrap">
                       {prov.identificacion}
                     </td>
-                    <td className="px-4 py-3 text-surface-800 font-medium">{prov.nombre}</td>
+                    <td className="px-4 py-3 text-surface-800 font-medium">
+                      <button
+                        onClick={() => navigate(`/proveedores/${prov.id}`)}
+                        className="hover:text-brand-600 hover:underline transition-colors text-left"
+                        title="Ver laboratorios, productos y documentos"
+                      >
+                        {prov.nombre}
+                      </button>
+                    </td>
                     <td className="px-4 py-3 space-y-0.5">
                       {prov.correo && (
                         <div className="flex items-center gap-1.5 text-xs text-surface-600">

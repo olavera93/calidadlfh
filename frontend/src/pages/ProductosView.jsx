@@ -6,6 +6,7 @@ import { EmptyState } from '../components/ui/EmptyState'
 import Paginator from '../components/ui/Paginator'
 import ExcelPreviewModal from '../components/ui/ExcelPreviewModal'
 import { ExcelExportButton } from '../components/ui/ExcelActions'
+import { useNavigate } from 'react-router-dom'
 
 export default function ProductosView() {
   // Datos
@@ -40,15 +41,21 @@ export default function ProductosView() {
     { key: 'codigo', label: 'Código' },
     { key: 'nombre', label: 'Nombre del Producto' },
     { key: 'laboratorio', label: 'Laboratorio' },
+    { key: 'registro_sanitario', label: 'Registro Sanitario' },
+    { key: 'estado', label: 'Estado' },
     { key: 'proveedor_identificacion', label: 'NIT / ID Proveedor' },
     { key: 'proveedor_nombre', label: 'Nombre Proveedor' }
   ]
+
+const navigate = useNavigate()
 
   // Formulario State
   const [formProducto, setFormProducto] = useState({
     codigo: '',
     nombre: '',
     laboratorio: '',
+    registro_sanitario: '',
+    estado: 'ACTIVO',
     proveedor_id: ''
   })
 
@@ -79,7 +86,8 @@ export default function ProductosView() {
     return productos.filter((p) => {
       const matchSearch =
         p.nombre?.toLowerCase().includes(search.toLowerCase()) ||
-        p.codigo?.toLowerCase().includes(search.toLowerCase())
+        p.codigo?.toLowerCase().includes(search.toLowerCase()) ||
+        p.registro_sanitario?.toLowerCase().includes(search.toLowerCase())
       const matchProv = proveedorFilter ? String(p.proveedor_id) === String(proveedorFilter) : true
       return matchSearch && matchProv
     })
@@ -138,6 +146,8 @@ export default function ProductosView() {
       codigo: p.codigo || '',
       nombre: p.nombre || '',
       laboratorio: p.laboratorio || '',
+      registro_sanitario: p.registro_sanitario || '',
+      estado: p.estado || 'ACTIVO',
       proveedor_identificacion: p.proveedor?.identificacion || '',
       proveedor_nombre: p.proveedor?.nombre || ''
     }))
@@ -153,6 +163,8 @@ export default function ProductosView() {
       'Código': p.codigo,
       'Nombre del Producto': p.nombre,
       'Laboratorio': p.laboratorio,
+      'Registro Sanitario': p.registro_sanitario,
+      'Estado': p.estado,
       'NIT / ID Proveedor': p.proveedor_identificacion,
       'Nombre Proveedor': p.proveedor_nombre
     }))
@@ -189,6 +201,8 @@ export default function ProductosView() {
             codigo: String(item['Código'] || item['codigo'] || item['Codigo'] || item['SKU'] || '').trim(),
             nombre: String(item['Nombre del Producto'] || item['nombre'] || item['Producto'] || item['Nombre'] || '').trim(),
             laboratorio: String(item['Laboratorio'] || item['laboratorio'] || '').trim() || null,
+            registro_sanitario: String(item['Registro Sanitario'] || item['registro_sanitario'] || item['Registro'] || '').trim() || null,
+            estado: String(item['Estado'] || item['estado'] || 'ACTIVO').trim().toUpperCase(),
             proveedor_identificacion: String(
               item['NIT / ID Proveedor'] || item['proveedor_identificacion'] || item['NIT Proveedor'] || item['NIT'] || ''
             ).trim() || null,
@@ -265,6 +279,8 @@ export default function ProductosView() {
         codigo: prod.codigo || '',
         nombre: prod.nombre || '',
         laboratorio: prod.laboratorio || '',
+        registro_sanitario: prod.registro_sanitario || '',
+        estado: prod.estado || 'ACTIVO',
         proveedor_id: prod.proveedor_id || ''
       })
     } else {
@@ -273,6 +289,8 @@ export default function ProductosView() {
         codigo: '',
         nombre: '',
         laboratorio: '',
+        registro_sanitario: '',
+        estado: 'ACTIVO',
         proveedor_id: proveedores[0]?.id || ''
       })
     }
@@ -295,7 +313,7 @@ export default function ProductosView() {
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
           <input
             type="text"
-            placeholder="Buscar por código o nombre..."
+            placeholder="Buscar por código, nombre o reg. sanitario..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="input-base pl-9 w-full"
@@ -316,7 +334,6 @@ export default function ProductosView() {
         </select>
 
         <div className="flex items-center gap-2 shrink-0">
-          {/* Componente reusable de Plantilla */}
           <ExcelExportButton
             columns={excelColumns}
             filename="plantilla_productos"
@@ -393,6 +410,8 @@ export default function ProductosView() {
                   <th className="text-left px-4 py-3">Código</th>
                   <th className="text-left px-4 py-3">Producto</th>
                   <th className="text-left px-4 py-3">Laboratorio</th>
+                  <th className="text-left px-4 py-3">Reg. Sanitario</th>
+                  <th className="text-center px-4 py-3">Estado</th>
                   <th className="text-left px-4 py-3">Proveedor</th>
                   <th className="text-right px-5 py-3">Acciones</th>
                 </tr>
@@ -414,8 +433,30 @@ export default function ProductosView() {
                     <td className="px-4 py-2.5 whitespace-nowrap text-surface-500 font-mono text-xs tabular font-bold">
                       {p.codigo}
                     </td>
-                    <td className="px-4 py-2.5 text-surface-700 font-medium">{p.nombre}</td>
+                    <td className="px-4 py-2.5 text-surface-700 font-medium">
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/productos/${p.id}`)}
+                          className="hover:text-brand-600 hover:underline text-left cursor-pointer transition-colors"
+                        >
+                          {p.nombre}
+                        </button>
+                      </td>
                     <td className="px-4 py-2.5 text-surface-500">{p.laboratorio || '—'}</td>
+                    <td className="px-4 py-2.5 text-surface-500 font-mono text-xs">
+                      {p.registro_sanitario || '—'}
+                    </td>
+                    <td className="px-4 py-2.5 text-center">
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
+                          p.estado === 'INACTIVO'
+                            ? 'bg-danger-50 text-danger-600 border border-danger-200'
+                            : 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                        }`}
+                      >
+                        {p.estado || 'ACTIVO'}
+                      </span>
+                    </td>
                     <td className="px-4 py-2.5 text-surface-600">{p.proveedor?.nombre || '—'}</td>
                     <td className="px-5 py-2.5 text-right whitespace-nowrap">
                       <button
@@ -508,6 +549,27 @@ export default function ProductosView() {
                   onChange={(e) => setFormProducto({ ...formProducto, laboratorio: e.target.value })}
                   className="input-base w-full mt-1"
                 />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-surface-600">Registro Sanitario</label>
+                <input
+                  type="text"
+                  value={formProducto.registro_sanitario}
+                  onChange={(e) => setFormProducto({ ...formProducto, registro_sanitario: e.target.value })}
+                  placeholder="Ej. INVIMA 2020M-0001234"
+                  className="input-base w-full mt-1"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-surface-600">Estado</label>
+                <select
+                  value={formProducto.estado}
+                  onChange={(e) => setFormProducto({ ...formProducto, estado: e.target.value })}
+                  className="input-base w-full mt-1"
+                >
+                  <option value="ACTIVO">ACTIVO</option>
+                  <option value="INACTIVO">INACTIVO</option>
+                </select>
               </div>
               <div>
                 <label className="text-xs font-semibold text-surface-600">Proveedor</label>

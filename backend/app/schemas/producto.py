@@ -1,5 +1,5 @@
+from typing import List, Optional
 from pydantic import BaseModel
-from typing import Optional, List
 from app.schemas.proveedor import ProveedorResponse
 
 
@@ -8,6 +8,8 @@ class ProductoBase(BaseModel):
     nombre: str
     laboratorio: Optional[str] = None
     proveedor_id: int
+    registro_sanitario: Optional[str] = None
+    estado: Optional[str] = None
 
 
 class ProductoCreate(ProductoBase):
@@ -19,6 +21,8 @@ class ProductoUpdate(BaseModel):
     nombre: Optional[str] = None
     laboratorio: Optional[str] = None
     proveedor_id: Optional[int] = None
+    registro_sanitario: Optional[str] = None
+    estado: Optional[str] = None
 
 
 class ProductoResponse(ProductoBase):
@@ -36,6 +40,8 @@ class ProductoImportItem(BaseModel):
     laboratorio: Optional[str] = None
     proveedor_id: Optional[int] = None
     proveedor_identificacion: Optional[str] = None
+    registro_sanitario: Optional[str] = None
+    estado: Optional[str] = None
 
 
 class ImportResponse(BaseModel):

@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
   Thermometer, LogOut, ChevronLeft, ChevronRight,
-  PackageCheck, CalendarX2, Settings, FlaskConical, LayoutDashboard, Package, Users,
+  PackageCheck, CalendarX2, Settings, FlaskConical, LayoutDashboard, Package, Users, FileText
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { cn } from '../../lib/utils'
@@ -136,7 +136,7 @@ export default function Sidebar() {
 
         <NavItem to="/Productos"         icon={Package}       label="Productos"      collapsed={collapsed} />
         <NavItem to="/Proveedores"       icon={Users}         label="Proveedores"    collapsed={collapsed} />
-
+        <NavItem to="/documentos"        icon={FileText}      label="Documentos"     collapsed={collapsed} />
         <SectionLabel label="Odoo" collapsed={collapsed} />
         <NavItem to="/odoo/recepciones"  icon={PackageCheck}  label="Recepciones"    collapsed={collapsed} />
         <NavItem to="/odoo/vencimientos" icon={CalendarX2}    label="Vencimientos"   collapsed={collapsed} />

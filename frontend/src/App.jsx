@@ -12,6 +12,10 @@ import OdooConfiguracion from './pages/odoo/OdooConfiguracion'
 import Configuracion from './pages/configuracion/Configuracion'
 import ProductosView from './pages/ProductosView'
 import ProveedoresView from './pages/ProveedoresView'
+import DocumentosView from './pages/DocumentosView'  // Asegúrate de que la ruta sea correcta
+import ProveedorDetalleView from './pages/ProveedorDetalleView'
+import ProductoDetalleView from './pages/ProductoDetalleView'  // Asegúrate de que la ruta sea correcta
+
 
 function ProtectedRoute({ children, adminOnly = false }) {
   const { token, isAdmin } = useAuth()
@@ -76,6 +80,39 @@ element={
   </ProtectedRoute>
 }
 />
+
+<Route
+  path="/proveedores/:id"
+  element={
+    <ProtectedRoute>
+      <Layout>
+        <ProveedorDetalleView />
+      </Layout>
+    </ProtectedRoute>
+  }
+/>
+<Route
+path="/documentos"
+element={
+  <ProtectedRoute>
+    <Layout>
+      <DocumentosView />
+    </Layout>
+  </ProtectedRoute>
+}
+/>  
+{/* 2. NUEVA RUTA PARA EL DETALLE DE PRODUCTO */}
+      <Route
+        path="/productos/:id"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <ProductoDetalleView />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
 
       <Route
         path="/odoo/recepciones"
