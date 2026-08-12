@@ -31,6 +31,11 @@ export default function ProductosView() {
   const [showModalProducto, setShowModalProducto] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
 
+  /* ── Estados para Modal de Eliminación de Producto ──────── */
+  const [showModalDelete, setShowModalDelete] = useState(false)
+  const [prodToDelete, setProdToDelete] = useState(null)
+  const [deleting, setDeleting] = useState(false)
+
   // Modal Excel State
   const [showExcelModal, setShowExcelModal] = useState(false)
   const [excelModalMode, setExcelModalMode] = useState('export') // 'import' | 'export'
@@ -47,7 +52,7 @@ export default function ProductosView() {
     { key: 'proveedor_nombre', label: 'Nombre Proveedor' }
   ]
 
-const navigate = useNavigate()
+  const navigate = useNavigate()
 
   // Formulario State
   const [formProducto, setFormProducto] = useState({
@@ -261,13 +266,24 @@ const navigate = useNavigate()
   }
 
   /* ── Handlers de Eliminación ──────────────────────────────── */
-  const handleDeleteProducto = async (id) => {
-    if (!confirm('¿Estás seguro de eliminar este producto?')) return
+  const handleOpenDeleteModal = (prod) => {
+    setProdToDelete(prod)
+    setShowModalDelete(true)
+  }
+
+  const handleDeleteProducto = async () => {
+    if (!prodToDelete) return
+
+    setDeleting(true)
     try {
-      await api.delete(`/productos/${id}`)
+      await api.delete(`/productos/${prodToDelete.id}`)
+      setShowModalDelete(false)
+      setProdToDelete(null)
       fetchData()
     } catch (err) {
-      alert('Error al eliminar el producto')
+      alert(err.response?.data?.detail || 'Error al eliminar el producto')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -434,14 +450,14 @@ const navigate = useNavigate()
                       {p.codigo}
                     </td>
                     <td className="px-4 py-2.5 text-surface-700 font-medium">
-                        <button
-                          type="button"
-                          onClick={() => navigate(`/productos/${p.id}`)}
-                          className="hover:text-brand-600 hover:underline text-left cursor-pointer transition-colors"
-                        >
-                          {p.nombre}
-                        </button>
-                      </td>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/productos/${p.id}`)}
+                        className="hover:text-brand-600 hover:underline text-left cursor-pointer transition-colors"
+                      >
+                        {p.nombre}
+                      </button>
+                    </td>
                     <td className="px-4 py-2.5 text-surface-500">{p.laboratorio || '—'}</td>
                     <td className="px-4 py-2.5 text-surface-500 font-mono text-xs">
                       {p.registro_sanitario || '—'}
@@ -467,7 +483,7 @@ const navigate = useNavigate()
                         <Edit2 size={15} />
                       </button>
                       <button
-                        onClick={() => handleDeleteProducto(p.id)}
+                        onClick={() => handleOpenDeleteModal(p)}
                         className="p-1 hover:text-danger-500 transition-colors"
                         title="Eliminar"
                       >
@@ -603,6 +619,41 @@ const navigate = useNavigate()
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE CONFIRMACIÓN DE ELIMINACIÓN */}
+      {showModalDelete && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-modal border border-surface-100 space-y-4">
+            <h3 className="text-base font-semibold text-surface-800">
+              ¿Eliminar producto?
+            </h3>
+            <p className="text-xs text-surface-600">
+              ¿Estás seguro de que deseas eliminar el producto{' '}
+              <strong className="text-surface-800">{prodToDelete?.nombre}</strong>? Esta acción no se puede deshacer.
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowModalDelete(false)
+                  setProdToDelete(null)
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-surface-600 hover:bg-surface-100 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteProducto}
+                disabled={deleting}
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-danger-500 text-white hover:bg-danger-600 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {deleting ? 'Eliminando...' : 'Eliminar'}
+              </button>
+            </div>
           </div>
         </div>
       )}

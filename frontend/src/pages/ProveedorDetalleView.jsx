@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Beaker, Package, FileText, Tag, Mail, Phone, MapPin, Plus, X, Download, Paperclip, ExternalLink } from 'lucide-react'
+import {
+  ArrowLeft, Beaker, Package, FileText, Tag, Mail, Phone, MapPin,
+  Plus, X, Download, Paperclip, ExternalLink, Edit2, Trash2
+} from 'lucide-react'
 import api from '../services/api'
 import { EmptyState } from '../components/ui/EmptyState'
 
@@ -11,7 +14,8 @@ import { EmptyState } from '../components/ui/EmptyState'
  *  - Datos de contacto del proveedor
  *  - Laboratorios que maneja (derivados de sus productos) y los productos de cada uno
  *  - Documentos asignados al proveedor (directos o a través de sus productos)
- *  - Modal para crear un nuevo documento asociado directamente al proveedor, con archivo adjunto
+ *  - Modal para crear / editar un documento asociado directamente al proveedor, con archivo adjunto
+ *  - Modal de confirmación para eliminar documento
  *  - Modal para previsualizar el archivo de un documento antes de descargarlo
  */
 
@@ -30,8 +34,9 @@ export default function ProveedorDetalleView() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  /* ── Estados para el Modal de Crear Documento ────────────── */
+  /* ── Estados para el Modal de Crear/Editar Documento ─────── */
   const [showModalDocumento, setShowModalDocumento] = useState(false)
+  const [editingDocId, setEditingDocId] = useState(null) // null = Crear, ID = Editar
   const [tagInput, setTagInput] = useState('')
   const [formDocumento, setFormDocumento] = useState({
     nombre_docu: '',
@@ -40,6 +45,11 @@ export default function ProveedorDetalleView() {
   })
   const [fileError, setFileError] = useState('')
   const [saving, setSaving] = useState(false)
+
+  /* ── Estados para Modal de Eliminación de Documento ──────── */
+  const [showModalDelete, setShowModalDelete] = useState(false)
+  const [docToDelete, setDocToDelete] = useState(null)
+  const [deleting, setDeleting] = useState(false)
 
   /* ── Estado para el Modal de Vista Previa de Archivo ─────── */
   const [docPreview, setDocPreview] = useState(null) // { id, nombre, url }
@@ -148,8 +158,9 @@ export default function ProveedorDetalleView() {
     setFormDocumento((prev) => ({ ...prev, archivo: file }))
   }
 
-  /* ── Abrir y Guardar Modal ───────────────────────────────── */
-  const handleOpenModal = () => {
+  /* ── Abrir Modal Crear Documento ─────────────────────────── */
+  const handleOpenCreateModal = () => {
+    setEditingDocId(null)
     setFormDocumento({
       nombre_docu: '',
       etiquetas: [],
@@ -160,10 +171,25 @@ export default function ProveedorDetalleView() {
     setShowModalDocumento(true)
   }
 
+  /* ── Abrir Modal Editar Documento ────────────────────────── */
+  const handleOpenEditModal = (doc) => {
+    setEditingDocId(doc.id)
+    setFormDocumento({
+      nombre_docu: doc.nombre_docu || '',
+      etiquetas: Array.isArray(doc.etiquetas) ? [...doc.etiquetas] : [],
+      archivo: null // El archivo es opcional en edición
+    })
+    setTagInput('')
+    setFileError('')
+    setShowModalDocumento(true)
+  }
+
+  /* ── Guardar Documento (Crear o Editar) ──────────────────── */
   const handleSaveDocumento = async (e) => {
     e.preventDefault()
 
-    if (!formDocumento.archivo) {
+    // Para creación es obligatorio el archivo. En edición es opcional.
+    if (!editingDocId && !formDocumento.archivo) {
       setFileError('Debes adjuntar un archivo.')
       return
     }
@@ -173,12 +199,24 @@ export default function ProveedorDetalleView() {
       const data = new FormData()
       data.append('nombre_docu', formDocumento.nombre_docu)
       data.append('etiquetas', JSON.stringify(formDocumento.etiquetas))
-      data.append('proveedor_id', proveedorId) // Se asocia directamente a este proveedor
-      data.append('archivo', formDocumento.archivo)
+      data.append('proveedor_id', proveedorId)
 
-      await api.post('/documentos/', data, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      })
+      if (formDocumento.archivo) {
+        data.append('archivo', formDocumento.archivo)
+      }
+
+      if (editingDocId) {
+        // Petición de Edición (Ajusta a PUT o PATCH según el endpoint de tu backend)
+        await api.put(`/documentos/${editingDocId}`, data, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        })
+      } else {
+        // Petición de Creación
+        await api.post('/documentos/', data, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        })
+      }
+
       setShowModalDocumento(false)
       fetchData() // Recarga los documentos actualizados
     } catch (err) {
@@ -188,9 +226,29 @@ export default function ProveedorDetalleView() {
     }
   }
 
+  /* ── Modal y Acción de Eliminar Documento ────────────────── */
+  const handleOpenDeleteModal = (doc) => {
+    setDocToDelete(doc)
+    setShowModalDelete(true)
+  }
+
+  const handleDeleteDocumento = async () => {
+    if (!docToDelete) return
+
+    setDeleting(true)
+    try {
+      await api.delete(`/documentos/${docToDelete.id}`)
+      setShowModalDelete(false)
+      setDocToDelete(null)
+      fetchData() // Recarga lista tras eliminar
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Error al eliminar el documento')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   /* ── Vista Previa de Archivo ─────────────────────────────── */
-  // Cambia a `true` si prefieres que el clic abra directo en pestaña nueva
-  // en vez de mostrar el modal con iframe (más simple y sin problemas de CORS/embebido).
   const ABRIR_EN_PESTANA_NUEVA = false
 
   const handleOpenPreview = (doc) => {
@@ -302,7 +360,7 @@ export default function ProveedorDetalleView() {
           </div>
 
           <button
-            onClick={handleOpenModal}
+            onClick={handleOpenCreateModal}
             className="bg-brand-500 hover:bg-brand-600 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
           >
             <Plus size={14} /> Nuevo Documento
@@ -342,7 +400,7 @@ export default function ProveedorDetalleView() {
                   </div>
                 </button>
 
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-3 shrink-0">
                   {Array.isArray(doc.etiquetas) && doc.etiquetas.length > 0 && (
                     <div className="flex flex-wrap gap-1 justify-end">
                       {doc.etiquetas.map((tag, idx) => (
@@ -356,6 +414,24 @@ export default function ProveedorDetalleView() {
                       ))}
                     </div>
                   )}
+
+                  {/* Acciones de Editar y Eliminar */}
+                  <div className="flex items-center gap-1 pl-2 border-l border-surface-100">
+                    <button
+                      onClick={() => handleOpenEditModal(doc)}
+                      className="p-1 rounded-md text-surface-400 hover:text-brand-600 hover:bg-surface-100 transition-colors"
+                      title="Editar documento"
+                    >
+                      <Edit2 size={13} />
+                    </button>
+                    <button
+                      onClick={() => handleOpenDeleteModal(doc)}
+                      className="p-1 rounded-md text-surface-400 hover:text-danger-500 hover:bg-danger-50 transition-colors"
+                      title="Eliminar documento"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
                 </div>
               </li>
             ))}
@@ -363,13 +439,13 @@ export default function ProveedorDetalleView() {
         )}
       </div>
 
-      {/* MODAL CREAR DOCUMENTO */}
+      {/* MODAL CREAR / EDITAR DOCUMENTO */}
       {showModalDocumento && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-modal border border-surface-100">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-base font-semibold text-surface-800">
-                Nuevo Documento para {proveedor.nombre}
+                {editingDocId ? 'Editar Documento' : `Nuevo Documento para ${proveedor.nombre}`}
               </h3>
               <button
                 onClick={() => setShowModalDocumento(false)}
@@ -394,11 +470,17 @@ export default function ProveedorDetalleView() {
 
               {/* ARCHIVO */}
               <div>
-                <label className="text-xs font-semibold text-surface-600">Archivo *</label>
+                <label className="text-xs font-semibold text-surface-600">
+                  Archivo {editingDocId ? '(Opcional: solo si deseas reemplazarlo)' : '*'}
+                </label>
                 <label className="mt-1 flex items-center gap-2 border border-dashed border-surface-300 rounded-xl px-3 py-3 cursor-pointer hover:border-brand-400 hover:bg-brand-50/30 transition-colors">
                   <Paperclip size={15} className="text-surface-400 shrink-0" />
                   <span className="text-xs text-surface-500 truncate flex-1">
-                    {formDocumento.archivo ? formDocumento.archivo.name : 'Selecciona un archivo (PDF, imagen, Word, Excel)'}
+                    {formDocumento.archivo
+                      ? formDocumento.archivo.name
+                      : editingDocId
+                      ? 'Selecciona un nuevo archivo para reemplazar'
+                      : 'Selecciona un archivo (PDF, imagen, Word, Excel)'}
                   </span>
                   <input
                     type="file"
@@ -461,10 +543,42 @@ export default function ProveedorDetalleView() {
                   disabled={saving}
                   className="px-4 py-2 rounded-xl text-xs font-semibold bg-brand-500 text-white hover:bg-brand-600 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {saving ? 'Guardando...' : 'Guardar'}
+                  {saving ? 'Guardando...' : editingDocId ? 'Actualizar' : 'Guardar'}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE CONFIRMACIÓN DE ELIMINACIÓN */}
+      {showModalDelete && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-modal border border-surface-100 space-y-4">
+            <h3 className="text-base font-semibold text-surface-800">
+              ¿Eliminar documento?
+            </h3>
+            <p className="text-xs text-surface-600">
+              ¿Estás seguro de que deseas eliminar el documento{' '}
+              <strong className="text-surface-800">{docToDelete?.nombre_docu}</strong>? Esta acción no se puede deshacer.
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowModalDelete(false)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-surface-600 hover:bg-surface-100 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteDocumento}
+                disabled={deleting}
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-danger-500 text-white hover:bg-danger-600 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {deleting ? 'Eliminando...' : 'Eliminar'}
+              </button>
+            </div>
           </div>
         </div>
       )}

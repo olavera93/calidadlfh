@@ -12,7 +12,7 @@ from app.database import get_db
 from app.models.documento import Documento
 from app.models.producto import Producto
 from app.models.proveedor import Proveedor
-from app.schemas.documento import DocumentoCreate, DocumentoResponse
+from app.schemas.documento import DocumentoResponse
 
 router = APIRouter(
     prefix="/documentos",
@@ -132,8 +132,17 @@ async def create_documento(
 
 
 @router.put("/{documento_id}", response_model=DocumentoResponse)
-def update_documento(documento_id: int, documento_in: DocumentoCreate, db: Session = Depends(get_db)):
-    """Actualiza la información de un documento existente (sin reemplazar el archivo)."""
+async def update_documento(
+    documento_id: int,
+    nombre_docu: str = Form(...),
+    producto_id: Optional[int] = Form(None),
+    proveedor_id: Optional[int] = Form(None),
+    etiquetas: Optional[str] = Form(None),  # JSON string, igual que en create
+    archivo: Optional[UploadFile] = File(None),  # opcional: solo si se va a reemplazar
+    db: Session = Depends(get_db),
+):
+    """Actualiza la información de un documento existente. Si se envía 'archivo',
+    reemplaza el archivo actual (borrando el anterior del disco)."""
     doc = db.query(Documento).filter(Documento.id == documento_id).first()
     if not doc:
         raise HTTPException(
@@ -141,10 +150,37 @@ def update_documento(documento_id: int, documento_in: DocumentoCreate, db: Sessi
             detail="Documento no encontrado"
         )
 
-    doc.nombre_docu = documento_in.nombre_docu
-    doc.producto_id = documento_in.producto_id
-    doc.proveedor_id = documento_in.proveedor_id
-    doc.etiquetas = documento_in.etiquetas
+    doc.nombre_docu = nombre_docu
+    doc.producto_id = producto_id
+    doc.proveedor_id = proveedor_id
+
+    try:
+        doc.etiquetas = json.loads(etiquetas) if etiquetas else []
+    except json.JSONDecodeError:
+        doc.etiquetas = []
+
+    # Reemplazo de archivo (opcional)
+    if archivo is not None:
+        if archivo.content_type not in ALLOWED_MIME:
+            raise HTTPException(status_code=400, detail="Tipo de archivo no permitido")
+
+        contenido = await archivo.read()
+        if len(contenido) > MAX_SIZE:
+            raise HTTPException(status_code=400, detail="El archivo supera los 10MB")
+
+        # Borrar el archivo anterior del disco, si existía
+        if doc.ruta_archivo and os.path.exists(doc.ruta_archivo):
+            os.remove(doc.ruta_archivo)
+
+        ext = os.path.splitext(archivo.filename)[1]
+        nombre_unico = f"{uuid.uuid4().hex}{ext}"
+        ruta_completa = os.path.join(UPLOAD_DIR, nombre_unico)
+
+        with open(ruta_completa, "wb") as f:
+            f.write(contenido)
+
+        doc.ruta_archivo = ruta_completa
+        doc.mime_type = archivo.content_type
 
     db.commit()
     db.refresh(doc)

@@ -14,7 +14,9 @@ import {
   X,
   Download,
   Paperclip,
-  ExternalLink
+  ExternalLink,
+  Edit2,
+  Trash2
 } from 'lucide-react'
 import api from '../services/api'
 import { EmptyState } from '../components/ui/EmptyState'
@@ -35,6 +37,7 @@ export default function ProductoDetalleView() {
 
   // 1. Estados para el modal de documentos y formulario
   const [showModalDocumento, setShowModalDocumento] = useState(false)
+  const [editingItem, setEditingItem] = useState(null) // null = Crear, doc = Editar
   const [tagInput, setTagInput] = useState('')
   const [formDocumento, setFormDocumento] = useState({
     nombre_docu: '',
@@ -44,11 +47,15 @@ export default function ProductoDetalleView() {
   const [fileError, setFileError] = useState('')
   const [saving, setSaving] = useState(false)
 
+  /* ── Estados para Modal de Eliminación de Documento ──────── */
+  const [showModalDelete, setShowModalDelete] = useState(false)
+  const [docToDelete, setDocToDelete] = useState(null)
+  const [deleting, setDeleting] = useState(false)
+
   // 2. Estado para el modal de vista previa de archivo
   const [docPreview, setDocPreview] = useState(null) // { id, nombre, url }
 
   // Cambia a `true` si prefieres que el clic abra directo en pestaña nueva
-  // en vez de mostrar el modal con iframe.
   const ABRIR_EN_PESTANA_NUEVA = false
 
   const fetchData = useCallback(async () => {
@@ -130,12 +137,22 @@ export default function ProductoDetalleView() {
   }
 
   /* ── Abrir y Guardar Modal ── */
-  const handleOpenModal = () => {
-    setFormDocumento({
-      nombre_docu: '',
-      etiquetas: [],
-      archivo: null
-    })
+  const handleOpenModal = (doc = null) => {
+    if (doc) {
+      setEditingItem(doc)
+      setFormDocumento({
+        nombre_docu: doc.nombre_docu || doc.nombre || '',
+        etiquetas: doc.etiquetas || [],
+        archivo: null
+      })
+    } else {
+      setEditingItem(null)
+      setFormDocumento({
+        nombre_docu: '',
+        etiquetas: [],
+        archivo: null
+      })
+    }
     setTagInput('')
     setFileError('')
     setShowModalDocumento(true)
@@ -144,7 +161,8 @@ export default function ProductoDetalleView() {
   const handleSaveDocumento = async (e) => {
     e.preventDefault()
 
-    if (!formDocumento.archivo) {
+    // Al crear, el archivo es obligatorio. Al editar, es opcional.
+    if (!editingItem && !formDocumento.archivo) {
       setFileError('Debes adjuntar un archivo.')
       return
     }
@@ -155,17 +173,48 @@ export default function ProductoDetalleView() {
       data.append('nombre_docu', formDocumento.nombre_docu)
       data.append('etiquetas', JSON.stringify(formDocumento.etiquetas))
       data.append('producto_id', productoId)
-      data.append('archivo', formDocumento.archivo)
+      if (formDocumento.archivo) {
+        data.append('archivo', formDocumento.archivo)
+      }
 
-      await api.post('/documentos/', data, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      })
+      if (editingItem) {
+        await api.put(`/documentos/${editingItem.id}`, data, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        })
+      } else {
+        await api.post('/documentos/', data, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        })
+      }
+
       setShowModalDocumento(false)
       fetchData()
     } catch (err) {
       alert(err.response?.data?.detail || 'Error al guardar el documento')
     } finally {
       setSaving(false)
+    }
+  }
+
+  /* ── Modal y Acción de Eliminar Documento ────────────────── */
+  const handleOpenDeleteModal = (doc) => {
+    setDocToDelete(doc)
+    setShowModalDelete(true)
+  }
+
+  const handleDeleteDocumento = async () => {
+    if (!docToDelete) return
+
+    setDeleting(true)
+    try {
+      await api.delete(`/documentos/${docToDelete.id}`)
+      setShowModalDelete(false)
+      setDocToDelete(null)
+      fetchData()
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Error al eliminar el documento')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -304,7 +353,7 @@ export default function ProductoDetalleView() {
           </div>
 
           <button
-            onClick={handleOpenModal}
+            onClick={() => handleOpenModal()}
             className="bg-brand-500 hover:bg-brand-600 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
           >
             <Plus size={14} /> Nuevo Documento
@@ -339,32 +388,51 @@ export default function ProductoDetalleView() {
                   </div>
                 </button>
 
-                {Array.isArray(doc.etiquetas) && doc.etiquetas.length > 0 && (
-                  <div className="flex flex-wrap gap-1 shrink-0">
-                    {doc.etiquetas.map((tag, idx) => (
-                      <span
-                        key={idx}
-                        className="bg-brand-50 text-brand-700 text-[10px] px-1.5 py-0.5 rounded-md flex items-center gap-1 font-medium border border-brand-100"
-                      >
-                        <Tag size={10} />
-                        {tag}
-                      </span>
-                    ))}
+                <div className="flex items-center gap-3 shrink-0">
+                  {Array.isArray(doc.etiquetas) && doc.etiquetas.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {doc.etiquetas.map((tag, idx) => (
+                        <span
+                          key={idx}
+                          className="bg-brand-50 text-brand-700 text-[10px] px-1.5 py-0.5 rounded-md flex items-center gap-1 font-medium border border-brand-100"
+                        >
+                          <Tag size={10} />
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-1 border-l border-surface-200 pl-2">
+                    <button
+                      onClick={() => handleOpenModal(doc)}
+                      className="p-1 text-surface-400 hover:text-brand-500 transition-colors"
+                      title="Editar documento"
+                    >
+                      <Edit2 size={14} />
+                    </button>
+                    <button
+                      onClick={() => handleOpenDeleteModal(doc)}
+                      className="p-1 text-surface-400 hover:text-danger-500 transition-colors"
+                      title="Eliminar documento"
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   </div>
-                )}
+                </div>
               </li>
             ))}
           </ul>
         )}
       </div>
 
-      {/* MODAL CREAR DOCUMENTO */}
+      {/* MODAL CREAR / EDITAR DOCUMENTO */}
       {showModalDocumento && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-modal border border-surface-100">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-base font-semibold text-surface-800">
-                Nuevo Documento para {producto.nombre}
+                {editingItem ? 'Editar Documento' : `Nuevo Documento para ${producto.nombre}`}
               </h3>
               <button
                 onClick={() => setShowModalDocumento(false)}
@@ -389,11 +457,25 @@ export default function ProductoDetalleView() {
 
               {/* ARCHIVO */}
               <div>
-                <label className="text-xs font-semibold text-surface-600">Archivo *</label>
+                <label className="text-xs font-semibold text-surface-600">
+                  Archivo {editingItem ? '(opcional: solo para reemplazar)' : '*'}
+                </label>
+
+                {editingItem && editingItem.ruta_archivo && !formDocumento.archivo && (
+                  <div className="mt-1 text-xs text-surface-500 bg-surface-50 border border-surface-100 rounded-xl px-3 py-2 flex items-center gap-2">
+                    <Paperclip size={13} className="text-surface-400 shrink-0" />
+                    Archivo actual adjunto. Selecciona uno nuevo abajo para reemplazarlo.
+                  </div>
+                )}
+
                 <label className="mt-1 flex items-center gap-2 border border-dashed border-surface-300 rounded-xl px-3 py-3 cursor-pointer hover:border-brand-400 hover:bg-brand-50/30 transition-colors">
                   <Paperclip size={15} className="text-surface-400 shrink-0" />
                   <span className="text-xs text-surface-500 truncate flex-1">
-                    {formDocumento.archivo ? formDocumento.archivo.name : 'Selecciona un archivo (PDF, imagen, Word, Excel)'}
+                    {formDocumento.archivo
+                      ? formDocumento.archivo.name
+                      : editingItem
+                      ? 'Seleccionar nuevo archivo (opcional)'
+                      : 'Selecciona un archivo (PDF, imagen, Word, Excel)'}
                   </span>
                   <input
                     type="file"
@@ -460,6 +542,38 @@ export default function ProductoDetalleView() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE CONFIRMACIÓN DE ELIMINACIÓN */}
+      {showModalDelete && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-modal border border-surface-100 space-y-4">
+            <h3 className="text-base font-semibold text-surface-800">
+              ¿Eliminar documento?
+            </h3>
+            <p className="text-xs text-surface-600">
+              ¿Estás seguro de que deseas eliminar el documento{' '}
+              <strong className="text-surface-800">{docToDelete?.nombre_docu}</strong>? Esta acción no se puede deshacer.
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowModalDelete(false)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-surface-600 hover:bg-surface-100 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteDocumento}
+                disabled={deleting}
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-danger-500 text-white hover:bg-danger-600 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {deleting ? 'Eliminando...' : 'Eliminar'}
+              </button>
+            </div>
           </div>
         </div>
       )}

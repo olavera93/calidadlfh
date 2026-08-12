@@ -29,6 +29,11 @@ export default function ProveedoresView() {
   const [showModal, setShowModal] = useState(false)
   const [editingProveedor, setEditingProveedor] = useState(null)
 
+  /* ── Estados para Modal de Eliminación de Proveedor ─────── */
+  const [showModalDelete, setShowModalDelete] = useState(false)
+  const [provToDelete, setProvToDelete] = useState(null)
+  const [deleting, setDeleting] = useState(false)
+
   // Modal Excel State (Importar / Exportar)
   const [showExcelModal, setShowExcelModal] = useState(false)
   const [excelModalMode, setExcelModalMode] = useState('export') // 'import' | 'export'
@@ -249,14 +254,25 @@ export default function ProveedoresView() {
     }
   }
 
-  /* ── Eliminar ────────────────────────────────────────────── */
-  const handleDelete = async (id) => {
-    if (!confirm('¿Estás seguro de eliminar este proveedor?')) return
+  /* ── Handlers de Eliminación ──────────────────────────────── */
+  const handleOpenDeleteModal = (prov) => {
+    setProvToDelete(prov)
+    setShowModalDelete(true)
+  }
+
+  const handleDelete = async () => {
+    if (!provToDelete) return
+
+    setDeleting(true)
     try {
-      await api.delete(`/proveedores/${id}`)
+      await api.delete(`/proveedores/${provToDelete.id}`)
+      setShowModalDelete(false)
+      setProvToDelete(null)
       fetchProveedores()
     } catch (err) {
       alert(err.response?.data?.detail || 'Error al eliminar el proveedor')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -441,7 +457,7 @@ export default function ProveedoresView() {
                         <Edit2 size={15} />
                       </button>
                       <button
-                        onClick={() => handleDelete(prov.id)}
+                        onClick={() => handleOpenDeleteModal(prov)}
                         className="p-1.5 text-surface-400 hover:text-danger-500 hover:bg-danger-50/50 rounded-lg transition-colors"
                         title="Eliminar"
                       >
@@ -569,6 +585,41 @@ export default function ProveedoresView() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE CONFIRMACIÓN DE ELIMINACIÓN */}
+      {showModalDelete && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-modal border border-surface-100 space-y-4">
+            <h3 className="text-base font-semibold text-surface-800">
+              ¿Eliminar proveedor?
+            </h3>
+            <p className="text-xs text-surface-600">
+              ¿Estás seguro de que deseas eliminar el proveedor{' '}
+              <strong className="text-surface-800">{provToDelete?.nombre}</strong>? Esta acción no se puede deshacer.
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowModalDelete(false)
+                  setProvToDelete(null)
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-surface-600 hover:bg-surface-100 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleting}
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-danger-500 text-white hover:bg-danger-600 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {deleting ? 'Eliminando...' : 'Eliminar'}
+              </button>
+            </div>
           </div>
         </div>
       )}

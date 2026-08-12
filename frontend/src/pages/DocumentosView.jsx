@@ -26,6 +26,12 @@ export default function DocumentosView() {
   // Referencia para el input de archivo oculto
   const fileInputRef = useRef(null)
 
+
+// Modal Confirmación de Eliminación State
+const [showModalDelete, setShowModalDelete] = useState(false)
+const [docToDelete, setDocToDelete] = useState(null)
+const [deleting, setDeleting] = useState(false)
+
   // Filtros y Búsqueda
   const [search, setSearch] = useState('')
   const [proveedorFilter, setProveedorFilter] = useState('')
@@ -318,26 +324,8 @@ export default function DocumentosView() {
     e.preventDefault()
     const esProducto = formDocumento.tipo_asociacion === 'producto'
 
-    if (editingItem) {
-      // Edición: solo metadatos, el backend aún no soporta reemplazar el archivo aquí.
-      try {
-        const payload = {
-          nombre_docu: formDocumento.nombre_docu,
-          etiquetas: formDocumento.etiquetas,
-          producto_id: esProducto && formDocumento.producto_id ? Number(formDocumento.producto_id) : null,
-          proveedor_id: !esProducto && formDocumento.proveedor_id ? Number(formDocumento.proveedor_id) : null
-        }
-        await api.put(`/documentos/${editingItem.id}`, payload)
-        setShowModalDocumento(false)
-        fetchData()
-      } catch (err) {
-        alert(err.response?.data?.detail || 'Error al guardar el documento')
-      }
-      return
-    }
-
-    // Creación: requiere archivo adjunto, se envía como FormData
-    if (!archivoDocumento) {
+    // Al crear, el archivo es obligatorio. Al editar, es opcional (solo si se quiere reemplazar).
+    if (!editingItem && !archivoDocumento) {
       setArchivoError('Debes adjuntar un archivo.')
       return
     }
@@ -349,11 +337,17 @@ export default function DocumentosView() {
       data.append('etiquetas', JSON.stringify(formDocumento.etiquetas))
       if (esProducto && formDocumento.producto_id) data.append('producto_id', formDocumento.producto_id)
       if (!esProducto && formDocumento.proveedor_id) data.append('proveedor_id', formDocumento.proveedor_id)
-      data.append('archivo', archivoDocumento)
+      if (archivoDocumento) data.append('archivo', archivoDocumento) // solo se manda si se seleccionó uno nuevo
 
-      await api.post('/documentos/', data, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      })
+      if (editingItem) {
+        await api.put(`/documentos/${editingItem.id}`, data, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        })
+      } else {
+        await api.post('/documentos/', data, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        })
+      }
       setShowModalDocumento(false)
       fetchData()
     } catch (err) {
@@ -364,15 +358,28 @@ export default function DocumentosView() {
   }
 
   /* ── Eliminación ──────────────────────────────────────────── */
-  const handleDeleteDocumento = async (id) => {
-    if (!confirm('¿Estás seguro de eliminar este documento?')) return
-    try {
-      await api.delete(`/documentos/${id}`)
-      fetchData()
-    } catch (err) {
-      alert('Error al eliminar el documento')
-    }
+  /* ── Abrir Modal de Confirmación de Eliminación ─────────────── */
+const handleOpenDeleteModal = (doc) => {
+  setDocToDelete(doc)
+  setShowModalDelete(true)
+}
+
+/* ── Ejecutar Eliminación tras Confirmación ─────────────────── */
+const handleDeleteDocumento = async () => {
+  if (!docToDelete) return
+
+  setDeleting(true)
+  try {
+    await api.delete(`/documentos/${docToDelete.id}`)
+    setShowModalDelete(false)
+    setDocToDelete(null)
+    fetchData()
+  } catch (err) {
+    alert(err.response?.data?.detail || 'Error al eliminar el documento')
+  } finally {
+    setDeleting(false)
   }
+}
 
   /* ── Modal Opener ─────────────────────────────────────────── */
   const openDocumentoModal = (doc = null) => {
@@ -628,13 +635,14 @@ export default function DocumentosView() {
                         >
                           <Edit2 size={15} />
                         </button>
-                        <button
-                          onClick={() => handleDeleteDocumento(doc.id)}
-                          className="p-1 hover:text-danger-500 transition-colors"
-                          title="Eliminar"
-                        >
-                          <Trash2 size={15} />
-                        </button>
+                        {/* Cambiar de: onClick={() => handleDeleteDocumento(doc.id)} */}
+<button
+  onClick={() => handleOpenDeleteModal(doc)}
+  className="p-1 hover:text-danger-500 transition-colors"
+  title="Eliminar"
+>
+  <Trash2 size={15} />
+</button>
                       </td>
                     </tr>
                   )
@@ -652,6 +660,9 @@ export default function DocumentosView() {
           onItemsPerPageChange={setItemsPerPage}
         />
       </div>
+
+
+      
 
       {/* MODAL PREVISUALIZACIÓN EXCEL */}
       <ExcelPreviewModal
@@ -770,38 +781,43 @@ export default function DocumentosView() {
               )}
 
               {/* ARCHIVO */}
-              {editingItem ? (
-                editingItem.ruta_archivo && (
-                  <div className="text-xs text-surface-500 bg-surface-50 border border-surface-100 rounded-xl px-3 py-2 flex items-center gap-2">
+              <div>
+                <label className="text-xs font-semibold text-surface-600">
+                  Archivo {editingItem ? '(opcional: solo si quieres reemplazarlo)' : '*'}
+                </label>
+
+                {editingItem && editingItem.ruta_archivo && !archivoDocumento && (
+                  <div className="mt-1 text-xs text-surface-500 bg-surface-50 border border-surface-100 rounded-xl px-3 py-2 flex items-center gap-2">
                     <Paperclip size={13} className="text-surface-400 shrink-0" />
-                    Archivo actual adjunto. Reemplazar el archivo no está disponible aún al editar.
+                    Archivo actual adjunto. Selecciona uno nuevo abajo para reemplazarlo.
                   </div>
-                )
-              ) : (
-                <div>
-                  <label className="text-xs font-semibold text-surface-600">Archivo *</label>
-                  <label className="mt-1 flex items-center gap-2 border border-dashed border-surface-300 rounded-xl px-3 py-3 cursor-pointer hover:border-brand-400 hover:bg-brand-50/30 transition-colors">
-                    <Paperclip size={15} className="text-surface-400 shrink-0" />
-                    <span className="text-xs text-surface-500 truncate flex-1">
-                      {archivoDocumento ? archivoDocumento.name : 'Selecciona un archivo (PDF, imagen, Word, Excel)'}
-                    </span>
-                    <input
-                      type="file"
-                      accept={ACCEPTED_EXTENSIONS}
-                      onChange={handleArchivoDocumentoChange}
-                      className="hidden"
-                    />
-                  </label>
-                  {archivoDocumento && (
-                    <p className="text-[11px] text-surface-400 mt-1">
-                      {(archivoDocumento.size / 1024).toFixed(0)} KB
-                    </p>
-                  )}
-                  {archivoError && (
-                    <p className="text-[11px] text-danger-500 mt-1">{archivoError}</p>
-                  )}
-                </div>
-              )}
+                )}
+
+                <label className="mt-1 flex items-center gap-2 border border-dashed border-surface-300 rounded-xl px-3 py-3 cursor-pointer hover:border-brand-400 hover:bg-brand-50/30 transition-colors">
+                  <Paperclip size={15} className="text-surface-400 shrink-0" />
+                  <span className="text-xs text-surface-500 truncate flex-1">
+                    {archivoDocumento
+                      ? archivoDocumento.name
+                      : editingItem
+                      ? 'Seleccionar nuevo archivo (opcional)'
+                      : 'Selecciona un archivo (PDF, imagen, Word, Excel)'}
+                  </span>
+                  <input
+                    type="file"
+                    accept={ACCEPTED_EXTENSIONS}
+                    onChange={handleArchivoDocumentoChange}
+                    className="hidden"
+                  />
+                </label>
+                {archivoDocumento && (
+                  <p className="text-[11px] text-surface-400 mt-1">
+                    {(archivoDocumento.size / 1024).toFixed(0)} KB
+                  </p>
+                )}
+                {archivoError && (
+                  <p className="text-[11px] text-danger-500 mt-1">{archivoError}</p>
+                )}
+              </div>
 
               {/* ETIQUETAS */}
               <div>
@@ -854,6 +870,41 @@ export default function DocumentosView() {
           </div>
         </div>
       )}
+
+      {/* MODAL DE CONFIRMACIÓN DE ELIMINACIÓN */}
+{showModalDelete && (
+  <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-modal border border-surface-100 space-y-4">
+      <h3 className="text-base font-semibold text-surface-800">
+        ¿Eliminar documento?
+      </h3>
+      <p className="text-xs text-surface-600">
+        ¿Estás seguro de que deseas eliminar el documento{' '}
+        <strong className="text-surface-800">{docToDelete?.nombre_docu}</strong>? Esta acción no se puede deshacer.
+      </p>
+      <div className="flex justify-end gap-2 pt-2">
+        <button
+          type="button"
+          onClick={() => {
+            setShowModalDelete(false)
+            setDocToDelete(null)
+          }}
+          className="px-4 py-2 rounded-xl text-xs font-semibold text-surface-600 hover:bg-surface-100 transition-colors"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          onClick={handleDeleteDocumento}
+          disabled={deleting}
+          className="px-4 py-2 rounded-xl text-xs font-semibold bg-danger-500 text-white hover:bg-danger-600 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {deleting ? 'Eliminando...' : 'Eliminar'}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
       {/* MODAL VISTA PREVIA DE ARCHIVO */}
       {docPreview && (
