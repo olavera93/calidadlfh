@@ -1,5 +1,4 @@
 import os
-import uuid
 import json
 import mimetypes
 from typing import List, Optional
@@ -19,9 +18,8 @@ router = APIRouter(
     tags=["documentos"]
 )
 
-# ── Configuración de almacenamiento de archivos ──────────────────────
+# ── Configuración base ──────────────────────────────────────────────
 UPLOAD_DIR = "storage/documentos"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 ALLOWED_MIME = {
     "application/pdf",
@@ -35,15 +33,54 @@ ALLOWED_MIME = {
 MAX_SIZE = 10 * 1024 * 1024  # 10 MB
 
 
+def guardar_archivo_fisico(
+    archivo: UploadFile,
+    contenido: bytes,
+    proveedor_id: Optional[int] = None,
+    producto_id: Optional[int] = None
+) -> str:
+    """
+    Determina la subcarpeta (proveedores o productos), asegura su existencia,
+    y guarda el archivo preservando su nombre original evitando sobreescrituras.
+    """
+    # 1. Determinar la subcarpeta
+    if proveedor_id:
+        subcarpeta = "proveedores"
+    elif producto_id:
+        subcarpeta = "productos"
+    else:
+        subcarpeta = "general"
+
+    directorio_destino = os.path.join(UPLOAD_DIR, subcarpeta)
+    os.makedirs(directorio_destino, exist_ok=True)
+
+    # 2. Mantener el nombre original subido por el usuario
+    nombre_original = archivo.filename
+    nombre_base, ext = os.path.splitext(nombre_original)
+
+    ruta_completa = os.path.join(directorio_destino, nombre_original)
+
+    # 3. Control de colisión para no sobreescribir archivos existentes con el mismo nombre
+    counter = 1
+    while os.path.exists(ruta_completa):
+        nuevo_nombre = f"{nombre_base}_{counter}{ext}"
+        ruta_completa = os.path.join(directorio_destino, nuevo_nombre)
+        counter += 1
+
+    # 4. Guardar archivo en el disco
+    with open(ruta_completa, "wb") as f:
+        f.write(contenido)
+
+    return ruta_completa
+
+
 @router.get("/", response_model=List[DocumentoResponse])
 def get_documentos(db: Session = Depends(get_db)):
-    """Obtiene la lista completa de documentos con sus productos y proveedores asociados."""
     return db.query(Documento).all()
 
 
 @router.get("/{documento_id}", response_model=DocumentoResponse)
 def get_documento(documento_id: int, db: Session = Depends(get_db)):
-    """Obtiene un documento por su ID."""
     documento = db.query(Documento).filter(Documento.id == documento_id).first()
     if not documento:
         raise HTTPException(
@@ -55,7 +92,6 @@ def get_documento(documento_id: int, db: Session = Depends(get_db)):
 
 @router.get("/{documento_id}/ver")
 def ver_documento(documento_id: int, db: Session = Depends(get_db)):
-    """Sirve el archivo para visualizarlo directamente en el navegador (inline, sin forzar descarga)."""
     doc = db.query(Documento).filter(Documento.id == documento_id).first()
     if not doc:
         raise HTTPException(status_code=404, detail="Documento no encontrado")
@@ -63,17 +99,12 @@ def ver_documento(documento_id: int, db: Session = Depends(get_db)):
     if not doc.ruta_archivo or not os.path.exists(doc.ruta_archivo):
         raise HTTPException(status_code=404, detail="Archivo no encontrado")
 
-    # Fallback: si mime_type no está guardado (documentos creados antes de este campo,
-    # o casos donde llegó vacío), se infiere a partir de la extensión del archivo.
     media_type = doc.mime_type
     if not media_type:
         guessed_type, _ = mimetypes.guess_type(doc.ruta_archivo)
         media_type = guessed_type or "application/octet-stream"
 
-    # El nombre que el usuario escribió (doc.nombre_docu) puede no tener extensión.
-    # Para que el navegador muestre el ícono correcto y guarde el archivo con la
-    # extensión adecuada, se toma la extensión real del archivo en disco.
-    extension_real = os.path.splitext(doc.ruta_archivo)[1]  # incluye el punto, ej: ".pdf"
+    extension_real = os.path.splitext(doc.ruta_archivo)[1]
     nombre_base = doc.nombre_docu
     if extension_real and not nombre_base.lower().endswith(extension_real.lower()):
         nombre_descarga = f"{nombre_base}{extension_real}"
@@ -92,12 +123,10 @@ async def create_documento(
     nombre_docu: str = Form(...),
     producto_id: Optional[int] = Form(None),
     proveedor_id: Optional[int] = Form(None),
-    etiquetas: Optional[str] = Form(None),  # llega como JSON string desde el frontend
+    etiquetas: Optional[str] = Form(None),
     archivo: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
-    """Crea un nuevo documento con archivo adjunto, asociándolo a producto/proveedor si se especifican."""
-
     if archivo.content_type not in ALLOWED_MIME:
         raise HTTPException(status_code=400, detail="Tipo de archivo no permitido")
 
@@ -105,12 +134,13 @@ async def create_documento(
     if len(contenido) > MAX_SIZE:
         raise HTTPException(status_code=400, detail="El archivo supera los 10MB")
 
-    ext = os.path.splitext(archivo.filename)[1]
-    nombre_unico = f"{uuid.uuid4().hex}{ext}"
-    ruta_completa = os.path.join(UPLOAD_DIR, nombre_unico)
-
-    with open(ruta_completa, "wb") as f:
-        f.write(contenido)
+    # Guardar en storage/documentos/productos o storage/documentos/proveedores manteniendo el nombre
+    ruta_completa = guardar_archivo_fisico(
+        archivo=archivo,
+        contenido=contenido,
+        proveedor_id=proveedor_id,
+        producto_id=producto_id
+    )
 
     try:
         etiquetas_list = json.loads(etiquetas) if etiquetas else []
@@ -137,12 +167,10 @@ async def update_documento(
     nombre_docu: str = Form(...),
     producto_id: Optional[int] = Form(None),
     proveedor_id: Optional[int] = Form(None),
-    etiquetas: Optional[str] = Form(None),  # JSON string, igual que en create
-    archivo: Optional[UploadFile] = File(None),  # opcional: solo si se va a reemplazar
+    etiquetas: Optional[str] = Form(None),
+    archivo: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db),
 ):
-    """Actualiza la información de un documento existente. Si se envía 'archivo',
-    reemplaza el archivo actual (borrando el anterior del disco)."""
     doc = db.query(Documento).filter(Documento.id == documento_id).first()
     if not doc:
         raise HTTPException(
@@ -159,7 +187,7 @@ async def update_documento(
     except json.JSONDecodeError:
         doc.etiquetas = []
 
-    # Reemplazo de archivo (opcional)
+    # Reemplazo de archivo si se envía uno nuevo
     if archivo is not None:
         if archivo.content_type not in ALLOWED_MIME:
             raise HTTPException(status_code=400, detail="Tipo de archivo no permitido")
@@ -168,16 +196,17 @@ async def update_documento(
         if len(contenido) > MAX_SIZE:
             raise HTTPException(status_code=400, detail="El archivo supera los 10MB")
 
-        # Borrar el archivo anterior del disco, si existía
+        # Borrar el archivo anterior del disco si existía
         if doc.ruta_archivo and os.path.exists(doc.ruta_archivo):
             os.remove(doc.ruta_archivo)
 
-        ext = os.path.splitext(archivo.filename)[1]
-        nombre_unico = f"{uuid.uuid4().hex}{ext}"
-        ruta_completa = os.path.join(UPLOAD_DIR, nombre_unico)
-
-        with open(ruta_completa, "wb") as f:
-            f.write(contenido)
+        # Guardar en la carpeta correspondiente con el nuevo nombre
+        ruta_completa = guardar_archivo_fisico(
+            archivo=archivo,
+            contenido=contenido,
+            proveedor_id=proveedor_id,
+            producto_id=producto_id
+        )
 
         doc.ruta_archivo = ruta_completa
         doc.mime_type = archivo.content_type
@@ -189,7 +218,6 @@ async def update_documento(
 
 @router.delete("/{documento_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_documento(documento_id: int, db: Session = Depends(get_db)):
-    """Elimina un documento de la base de datos y su archivo físico asociado."""
     doc = db.query(Documento).filter(Documento.id == documento_id).first()
     if not doc:
         raise HTTPException(
@@ -207,12 +235,10 @@ def delete_documento(documento_id: int, db: Session = Depends(get_db)):
 
 @router.post("/importar-json")
 def importar_documentos_json(documentos_data: List[dict], db: Session = Depends(get_db)):
-    """Procesa e importa registros masivos desde Excel cargados por el frontend."""
     creados = 0
     actualizados = 0
 
     for item in documentos_data:
-        # Se soporta 'nombre_docu' o 'nombre' por compatibilidad con la carga del JSON/Excel
         nombre_docu = item.get("nombre_docu") or item.get("nombre")
         if not nombre_docu:
             continue
