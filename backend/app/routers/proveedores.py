@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session,joinedload
 from typing import List
 
 from app.database import get_db
@@ -17,9 +17,15 @@ def get_proveedores(skip: int = 0, limit: int = 100, db: Session = Depends(get_d
 
 @router.get("/{proveedor_id}", response_model=ProveedorResponse)
 def get_proveedor(proveedor_id: int, db: Session = Depends(get_db)):
-    db_proveedor = db.query(Proveedor).filter(Proveedor.id == proveedor_id).first()
+    # 👈 Se añade joinedload para traer los productos asociados
+    db_proveedor = db.query(Proveedor).options(joinedload(Proveedor.productos)).filter(Proveedor.id == proveedor_id).first()
+    
     if not db_proveedor:
-        raise HTTPException(status_code=404, detail="Proveedor no encontrado")
+        raise HTTPException(
+            status_code=404, 
+            detail="Proveedor no encontrado"
+        )
+        
     return db_proveedor
 
 @router.post("/", response_model=ProveedorResponse, status_code=status.HTTP_201_CREATED)

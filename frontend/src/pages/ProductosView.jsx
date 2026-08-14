@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react'
+import React, { useCallback, useEffect, useState, useRef } from 'react'
 import { Plus, Search, Edit2, Trash2, Package, X, Upload, Download } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import api from '../services/api'
@@ -20,12 +20,14 @@ export default function ProductosView() {
 
   // Filtros y Búsqueda
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [proveedorFilter, setProveedorFilter] = useState('')
 
-  // Selección y Paginación
-  const [selectedIds, setSelectedIds] = useState(new Set())
+  // Selección (Map<id, producto> para que sobreviva el cambio de página) y Paginación
+  const [selectedItems, setSelectedItems] = useState(new Map())
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(10)
+  const [totalItems, setTotalItems] = useState(0)
 
   // Modal Producto State
   const [showModalProducto, setShowModalProducto] = useState(false)
@@ -40,6 +42,9 @@ export default function ProductosView() {
   const [showExcelModal, setShowExcelModal] = useState(false)
   const [excelModalMode, setExcelModalMode] = useState('export') // 'import' | 'export'
   const [excelData, setExcelData] = useState([])
+  // Lista completa de productos existentes (todos, no solo la página actual) para que el
+  // modal de importación pueda detectar correctamente duplicados por código
+  const [allProductosForImport, setAllProductosForImport] = useState([])
 
   // Columnas para la previsualización del mini-excel y generación de plantillas
   const excelColumns = [
@@ -64,83 +69,120 @@ export default function ProductosView() {
     proveedor_id: ''
   })
 
-  /* ── Cargar Datos de la API ──────────────────────────────── */
+  /* ── Cargar Proveedores (una sola vez, lista corta para el <select>) ── */
+  useEffect(() => {
+    api.get('/proveedores')
+      .then((res) => setProveedores(res.data))
+      .catch((err) => setError(err.response?.data?.detail || 'Error al cargar proveedores'))
+  }, [])
+
+  /* ── Debounce de la búsqueda: espera 350ms tras dejar de teclear ──── */
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 350)
+    return () => clearTimeout(timer)
+  }, [search])
+
+  /* ── Volver a página 1 cuando cambian filtros/búsqueda/tamaño ─────── */
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [debouncedSearch, proveedorFilter, itemsPerPage])
+
+  /* ── Cargar Productos de la API (server-side pagination + search) ─── */
   const fetchData = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
-      const [resProd, resProv] = await Promise.all([
-        api.get('/productos'),
-        api.get('/proveedores')
-      ])
-      setProductos(resProd.data)
-      setProveedores(resProv.data)
+      const res = await api.get('/productos', {
+        params: {
+          skip: (currentPage - 1) * itemsPerPage,
+          limit: itemsPerPage,
+          search: debouncedSearch || undefined,
+          proveedor_id: proveedorFilter || undefined
+        }
+      })
+
+      // 1. Si el backend devuelve la estructura paginada { items, total }
+      if (res.data && Array.isArray(res.data.items)) {
+        setProductos(res.data.items)
+        setTotalItems(res.data.total ?? res.data.items.length)
+      } 
+      // 2. Si por alguna razón el backend devuelve el array directo [...]
+      else if (Array.isArray(res.data)) {
+        setProductos(res.data)
+        setTotalItems(res.data.length)
+      } 
+      // 3. Fallback en caso de un formato inesperado
+      else {
+        setProductos([])
+        setTotalItems(0)
+      }
+
     } catch (err) {
       setError(err.response?.data?.detail || 'Error al cargar la información')
+      setProductos([]) // Limpiamos para evitar inconsistencias
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [currentPage, itemsPerPage, debouncedSearch, proveedorFilter])
 
   useEffect(() => {
     fetchData()
   }, [fetchData])
 
-  /* ── Filtrado dinámico ────────────────────────────────────── */
-  const productosFiltrados = useMemo(() => {
-    return productos.filter((p) => {
-      const matchSearch =
-        p.nombre?.toLowerCase().includes(search.toLowerCase()) ||
-        p.codigo?.toLowerCase().includes(search.toLowerCase()) ||
-        p.registro_sanitario?.toLowerCase().includes(search.toLowerCase())
-      const matchProv = proveedorFilter ? String(p.proveedor_id) === String(proveedorFilter) : true
-      return matchSearch && matchProv
-    })
-  }, [productos, search, proveedorFilter])
-
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [search, proveedorFilter, itemsPerPage])
-
-  /* ── Paginación ───────────────────────────────────────────── */
-  const productosPaginados = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage
-    return productosFiltrados.slice(start, start + itemsPerPage)
-  }, [productosFiltrados, currentPage, itemsPerPage])
-
-  /* ── Selección ────────────────────────────────────────────── */
-  const toggleSelectOne = (id) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
+  /* ── Selección (persiste entre páginas gracias al Map) ───────────── */
+  const toggleSelectOne = (producto) => {
+    setSelectedItems((prev) => {
+      const next = new Map(prev)
+      if (next.has(producto.id)) next.delete(producto.id)
+      else next.set(producto.id, producto)
       return next
     })
   }
 
   const isPageFullySelected =
-    productosPaginados.length > 0 && productosPaginados.every((p) => selectedIds.has(p.id))
+    productos.length > 0 && productos.every((p) => selectedItems.has(p.id))
 
   const toggleSelectPage = () => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev)
+    setSelectedItems((prev) => {
+      const next = new Map(prev)
       if (isPageFullySelected) {
-        productosPaginados.forEach((p) => next.delete(p.id))
+        productos.forEach((p) => next.delete(p.id))
       } else {
-        productosPaginados.forEach((p) => next.add(p.id))
+        productos.forEach((p) => next.set(p.id, p))
       }
       return next
     })
   }
 
-  const clearSelection = () => setSelectedIds(new Set())
+  const clearSelection = () => setSelectedItems(new Map())
 
   /* ── Exportar: Abrir Modal Previo ──────────────────────────── */
-  const handleOpenExportModal = () => {
-    const productosAExportar =
-      selectedIds.size > 0
-        ? productos.filter((p) => selectedIds.has(p.id))
-        : productosFiltrados
+  const handleOpenExportModal = async () => {
+    let productosAExportar = []
+
+    if (selectedItems.size > 0) {
+      productosAExportar = Array.from(selectedItems.values())
+    } else {
+      // Sin selección: traer TODOS los productos que coinciden con el filtro/búsqueda actual,
+      // no solo los de la página visible.
+      setLoading(true)
+      try {
+        const res = await api.get('/productos', {
+          params: {
+            skip: 0,
+            limit: 100000,
+            search: debouncedSearch || undefined,
+            proveedor_id: proveedorFilter || undefined
+          }
+        })
+        productosAExportar = res.data.items
+      } catch (err) {
+        alert(err.response?.data?.detail || 'Error al preparar la exportación')
+        setLoading(false)
+        return
+      }
+      setLoading(false)
+    }
 
     if (productosAExportar.length === 0) {
       alert('No hay productos para exportar')
@@ -188,7 +230,7 @@ export default function ProductosView() {
     if (!file) return
 
     const reader = new FileReader()
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
       try {
         const bstr = evt.target.result
         const workbook = XLSX.read(bstr, { type: 'binary' })
@@ -219,6 +261,15 @@ export default function ProductosView() {
         if (productosAImportar.length === 0) {
           alert('No se encontraron productos válidos en el archivo.')
           return
+        }
+
+        // Traer TODOS los productos existentes (no solo la página visible) para que el
+        // modal pueda comparar por código y marcar correctamente nuevos vs. actualizaciones
+        try {
+          const res = await api.get('/productos', { params: { skip: 0, limit: 100000 } })
+          setAllProductosForImport(res.data.items)
+        } catch (err) {
+          setAllProductosForImport([])
         }
 
         setExcelData(productosAImportar)
@@ -373,7 +424,7 @@ export default function ProductosView() {
             title="Exportar a Excel"
           >
             <Download size={16} />
-            {selectedIds.size > 0 ? `Exportar (${selectedIds.size})` : 'Exportar'}
+            {selectedItems.size > 0 ? `Exportar (${selectedItems.size})` : 'Exportar'}
           </button>
 
           <button
@@ -397,19 +448,19 @@ export default function ProductosView() {
         <div className="px-5 py-3.5 border-b border-surface-100 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-surface-700">
             Listado de Productos
-            <span className="ml-2 font-normal text-surface-400">({productosFiltrados.length})</span>
+            <span className="ml-2 font-normal text-surface-400">({totalItems})</span>
           </h3>
-          {selectedIds.size > 0 && (
+          {selectedItems.size > 0 && (
             <button
               onClick={clearSelection}
               className="text-xs font-medium text-brand-500 hover:text-brand-600"
             >
-              Limpiar selección ({selectedIds.size})
+              Limpiar selección ({selectedItems.size})
             </button>
           )}
         </div>
         <div className="overflow-x-auto scrollbar-thin">
-          {productosFiltrados.length === 0 && !loading ? (
+          {totalItems === 0 && !loading ? (
             <EmptyState icon={Package} title="No hay productos registrados" />
           ) : (
             <table className="w-full text-sm">
@@ -433,7 +484,7 @@ export default function ProductosView() {
                 </tr>
               </thead>
               <tbody>
-                {productosPaginados.map((p) => (
+                {productos.map((p) => (
                   <tr
                     key={p.id}
                     className="border-b border-surface-100 last:border-0 hover:bg-surface-50 transition-colors"
@@ -441,8 +492,8 @@ export default function ProductosView() {
                     <td className="px-5 py-2.5">
                       <input
                         type="checkbox"
-                        checked={selectedIds.has(p.id)}
-                        onChange={() => toggleSelectOne(p.id)}
+                        checked={selectedItems.has(p.id)}
+                        onChange={() => toggleSelectOne(p)}
                         className="rounded border-surface-300"
                       />
                     </td>
@@ -499,7 +550,7 @@ export default function ProductosView() {
 
         <Paginator
           currentPage={currentPage}
-          totalItems={productosFiltrados.length}
+          totalItems={totalItems}
           itemsPerPage={itemsPerPage}
           onPageChange={setCurrentPage}
           onItemsPerPageChange={setItemsPerPage}
@@ -514,7 +565,7 @@ export default function ProductosView() {
         columns={excelColumns}
         data={excelData}
         mode={excelModalMode}
-        existingItems={productos}
+        existingItems={excelModalMode === 'import' ? allProductosForImport : productos}
         matchKey="codigo"
         onConfirmExport={handleConfirmExport}
         onConfirmImport={handleConfirmImport}

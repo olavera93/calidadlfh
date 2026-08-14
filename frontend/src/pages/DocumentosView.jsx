@@ -21,16 +21,15 @@ export default function DocumentosView() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const navigate = useNavigate() // <--- Agregar esta línea
+  const navigate = useNavigate()
 
   // Referencia para el input de archivo oculto
   const fileInputRef = useRef(null)
 
-
-// Modal Confirmación de Eliminación State
-const [showModalDelete, setShowModalDelete] = useState(false)
-const [docToDelete, setDocToDelete] = useState(null)
-const [deleting, setDeleting] = useState(false)
+  // Modal Confirmación de Eliminación State
+  const [showModalDelete, setShowModalDelete] = useState(false)
+  const [docToDelete, setDocToDelete] = useState(null)
+  const [deleting, setDeleting] = useState(false)
 
   // Filtros y Búsqueda
   const [search, setSearch] = useState('')
@@ -50,13 +49,12 @@ const [deleting, setDeleting] = useState(false)
   const [savingDocumento, setSavingDocumento] = useState(false)
 
   // Modal Vista Previa de Archivo
-  const [docPreview, setDocPreview] = useState(null) // { id, nombre, url }
-  // Cambia a `true` si prefieres que el clic abra directo en pestaña nueva en vez del modal
+  const [docPreview, setDocPreview] = useState(null)
   const ABRIR_EN_PESTANA_NUEVA = false
 
   // Modal Excel State
   const [showExcelModal, setShowExcelModal] = useState(false)
-  const [excelModalMode, setExcelModalMode] = useState('export') // 'import' | 'export'
+  const [excelModalMode, setExcelModalMode] = useState('export')
   const [excelData, setExcelData] = useState([])
 
   // Columnas para la previsualización del mini-excel y generación de plantillas
@@ -72,7 +70,7 @@ const [deleting, setDeleting] = useState(false)
   // Formulario State
   const [formDocumento, setFormDocumento] = useState({
     nombre_docu: '',
-    tipo_asociacion: 'producto', // 'producto' | 'proveedor'
+    tipo_asociacion: 'producto',
     producto_id: '',
     proveedor_id: '',
     etiquetas: []
@@ -84,16 +82,17 @@ const [deleting, setDeleting] = useState(false)
     setError('')
     try {
       const [resDoc, resProd, resProv] = await Promise.all([
-        api.get('/documentos/'),
-        api.get('/productos'),
-        api.get('/proveedores')
-      ])
-      setDocumentos(resDoc.data)
-      setProductos(resProd.data)
-      setProveedores(resProv.data)
+  api.get('/documentos/'),
+  api.get('/productos', { params: { limit: 100000 } }), // trae todos para el selector
+  api.get('/proveedores')
+])
+setDocumentos(resDoc.data)
+setProductos(resProd.data?.items || [])   // 👈 extrae items
+setProveedores(resProv.data)
     } catch (err) {
       setError(err.response?.data?.detail || 'Error al cargar los documentos')
-    } finally {
+    } 
+    finally {
       setLoading(false)
     }
   }, [])
@@ -324,7 +323,6 @@ const [deleting, setDeleting] = useState(false)
     e.preventDefault()
     const esProducto = formDocumento.tipo_asociacion === 'producto'
 
-    // Al crear, el archivo es obligatorio. Al editar, es opcional (solo si se quiere reemplazar).
     if (!editingItem && !archivoDocumento) {
       setArchivoError('Debes adjuntar un archivo.')
       return
@@ -337,7 +335,7 @@ const [deleting, setDeleting] = useState(false)
       data.append('etiquetas', JSON.stringify(formDocumento.etiquetas))
       if (esProducto && formDocumento.producto_id) data.append('producto_id', formDocumento.producto_id)
       if (!esProducto && formDocumento.proveedor_id) data.append('proveedor_id', formDocumento.proveedor_id)
-      if (archivoDocumento) data.append('archivo', archivoDocumento) // solo se manda si se seleccionó uno nuevo
+      if (archivoDocumento) data.append('archivo', archivoDocumento)
 
       if (editingItem) {
         await api.put(`/documentos/${editingItem.id}`, data, {
@@ -357,29 +355,28 @@ const [deleting, setDeleting] = useState(false)
     }
   }
 
-  /* ── Eliminación ──────────────────────────────────────────── */
   /* ── Abrir Modal de Confirmación de Eliminación ─────────────── */
-const handleOpenDeleteModal = (doc) => {
-  setDocToDelete(doc)
-  setShowModalDelete(true)
-}
-
-/* ── Ejecutar Eliminación tras Confirmación ─────────────────── */
-const handleDeleteDocumento = async () => {
-  if (!docToDelete) return
-
-  setDeleting(true)
-  try {
-    await api.delete(`/documentos/${docToDelete.id}`)
-    setShowModalDelete(false)
-    setDocToDelete(null)
-    fetchData()
-  } catch (err) {
-    alert(err.response?.data?.detail || 'Error al eliminar el documento')
-  } finally {
-    setDeleting(false)
+  const handleOpenDeleteModal = (doc) => {
+    setDocToDelete(doc)
+    setShowModalDelete(true)
   }
-}
+
+  /* ── Ejecutar Eliminación tras Confirmación ─────────────────── */
+  const handleDeleteDocumento = async () => {
+    if (!docToDelete) return
+
+    setDeleting(true)
+    try {
+      await api.delete(`/documentos/${docToDelete.id}`)
+      setShowModalDelete(false)
+      setDocToDelete(null)
+      fetchData()
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Error al eliminar el documento')
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   /* ── Modal Opener ─────────────────────────────────────────── */
   const openDocumentoModal = (doc = null) => {
@@ -580,38 +577,41 @@ const handleDeleteDocumento = async () => {
                           </span>
                         </button>
                       </td>
-                     <td className="px-4 py-2.5 text-surface-700">
-  {prod ? (
-    <button
-      type="button"
-      onClick={() => navigate(`/productos/${prod.id}`)}
-      className="text-left group cursor-pointer"
-    >
-      <span className="font-medium text-surface-800 group-hover:text-brand-600 group-hover:underline block transition-colors">
-        {prod.nombre}
-      </span>
-      <span className="block text-xs font-mono text-surface-400">
-        {prod.codigo}
-      </span>
-    </button>
-  ) : (
-    '—'
-  )}
-</td>
-                      <td className="px-4 py-2.5 text-surface-500">{prod?.laboratorio || '—'}</td>
-<td className="px-4 py-2.5 text-surface-600">
-  {doc.proveedor_id || prod?.proveedor_id ? (
-    <button
-      type="button"
-      onClick={() => navigate(`/proveedores/${doc.proveedor_id || prod.proveedor_id}`)}
-      className="hover:text-brand-600 hover:underline cursor-pointer text-left font-medium transition-colors"
-    >
-      {provNombre}
-    </button>
-  ) : (
-    '—'
-  )}
-</td>                      <td className="px-4 py-2.5">
+                      <td className="px-4 py-2.5 text-surface-700">
+                        {prod ? (
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/productos/${prod.id}`)}
+                            className="text-left group cursor-pointer"
+                          >
+                            <span className="font-medium text-surface-800 group-hover:text-brand-600 group-hover:underline block transition-colors">
+                              {prod.nombre}
+                            </span>
+                            <span className="block text-xs font-mono text-surface-400">
+                              {prod.codigo}
+                            </span>
+                          </button>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <td className="px-4 py-2.5 text-surface-500">
+                        {prod?.laboratorio || '—'}
+                      </td>
+                      <td className="px-4 py-2.5 text-surface-600">
+                        {doc.proveedor_id || prod?.proveedor_id ? (
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/proveedores/${doc.proveedor_id || prod.proveedor_id}`)}
+                            className="hover:text-brand-600 hover:underline cursor-pointer text-left font-medium transition-colors"
+                          >
+                            {provNombre}
+                          </button>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <td className="px-4 py-2.5">
                         <div className="flex flex-wrap gap-1">
                           {doc.etiquetas && doc.etiquetas.length > 0 ? (
                             doc.etiquetas.map((tag, idx) => (
@@ -635,14 +635,13 @@ const handleDeleteDocumento = async () => {
                         >
                           <Edit2 size={15} />
                         </button>
-                        {/* Cambiar de: onClick={() => handleDeleteDocumento(doc.id)} */}
-<button
-  onClick={() => handleOpenDeleteModal(doc)}
-  className="p-1 hover:text-danger-500 transition-colors"
-  title="Eliminar"
->
-  <Trash2 size={15} />
-</button>
+                        <button
+                          onClick={() => handleOpenDeleteModal(doc)}
+                          className="p-1 hover:text-danger-500 transition-colors"
+                          title="Eliminar"
+                        >
+                          <Trash2 size={15} />
+                        </button>
                       </td>
                     </tr>
                   )
@@ -660,9 +659,6 @@ const handleDeleteDocumento = async () => {
           onItemsPerPageChange={setItemsPerPage}
         />
       </div>
-
-
-      
 
       {/* MODAL PREVISUALIZACIÓN EXCEL */}
       <ExcelPreviewModal
@@ -872,39 +868,39 @@ const handleDeleteDocumento = async () => {
       )}
 
       {/* MODAL DE CONFIRMACIÓN DE ELIMINACIÓN */}
-{showModalDelete && (
-  <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-modal border border-surface-100 space-y-4">
-      <h3 className="text-base font-semibold text-surface-800">
-        ¿Eliminar documento?
-      </h3>
-      <p className="text-xs text-surface-600">
-        ¿Estás seguro de que deseas eliminar el documento{' '}
-        <strong className="text-surface-800">{docToDelete?.nombre_docu}</strong>? Esta acción no se puede deshacer.
-      </p>
-      <div className="flex justify-end gap-2 pt-2">
-        <button
-          type="button"
-          onClick={() => {
-            setShowModalDelete(false)
-            setDocToDelete(null)
-          }}
-          className="px-4 py-2 rounded-xl text-xs font-semibold text-surface-600 hover:bg-surface-100 transition-colors"
-        >
-          Cancelar
-        </button>
-        <button
-          type="button"
-          onClick={handleDeleteDocumento}
-          disabled={deleting}
-          className="px-4 py-2 rounded-xl text-xs font-semibold bg-danger-500 text-white hover:bg-danger-600 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-          {deleting ? 'Eliminando...' : 'Eliminar'}
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+      {showModalDelete && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-modal border border-surface-100 space-y-4">
+            <h3 className="text-base font-semibold text-surface-800">
+              ¿Eliminar documento?
+            </h3>
+            <p className="text-xs text-surface-600">
+              ¿Estás seguro de que deseas eliminar el documento{' '}
+              <strong className="text-surface-800">{docToDelete?.nombre_docu}</strong>? Esta acción no se puede deshacer.
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowModalDelete(false)
+                  setDocToDelete(null)
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-surface-600 hover:bg-surface-100 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteDocumento}
+                disabled={deleting}
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-danger-500 text-white hover:bg-danger-600 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {deleting ? 'Eliminando...' : 'Eliminar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL VISTA PREVIA DE ARCHIVO */}
       {docPreview && (

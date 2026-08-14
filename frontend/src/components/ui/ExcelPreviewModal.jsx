@@ -17,20 +17,27 @@ export default function ExcelPreviewModal({
   if (!isOpen) return null
 
 /* ── Helper para extraer y normalizar valores comparables ── */
-  const getNormalizedValue = (item, key) => {
-    let val = ''
+/* ── Helper para extraer y normalizar valores comparables ── */
+const getNormalizedValue = (item, key) => {
+  let val = null
 
-    // Manejo de relaciones anidadas (ej: proveedor.identificacion)
-    if (key === 'proveedor_identificacion') {
-      val = item.proveedor?.identificacion || item.proveedor_identificacion || ''
-    } else if (key === 'proveedor_nombre') {
-      val = item.proveedor?.nombre || item.proveedor_nombre || ''
-    } else {
-      val = item[key] ?? ''
-    }
-
-    return String(val).trim().toLowerCase()
+  // 1. Extraer el valor considerando relaciones anidadas
+  if (key === 'proveedor_identificacion') {
+    val = item.proveedor?.identificacion ?? item.proveedor_identificacion
+  } else if (key === 'proveedor_nombre') {
+    val = item.proveedor?.nombre ?? item.proveedor_nombre
+  } else {
+    val = item[key]
   }
+
+  // 2. Si es null, undefined o la cadena vacía, retornamos siempre ""
+  if (val === null || val === undefined) {
+    return ''
+  }
+
+  // 3. Convertir a String, quitar espacios a los lados y pasar a minúsculas
+  return String(val).trim().toLowerCase()
+}
 
   /* ── Analizar Estado de Importación (Nuevo / Modificado / Repetido) ── */
   const processedData = useMemo(() => {

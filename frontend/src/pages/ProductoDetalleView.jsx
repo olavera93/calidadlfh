@@ -16,7 +16,8 @@ import {
   Paperclip,
   ExternalLink,
   Edit2,
-  Trash2
+  Trash2,
+  ChevronDown
 } from 'lucide-react'
 import api from '../services/api'
 import { EmptyState } from '../components/ui/EmptyState'
@@ -55,27 +56,51 @@ export default function ProductoDetalleView() {
   // 2. Estado para el modal de vista previa de archivo
   const [docPreview, setDocPreview] = useState(null) // { id, nombre, url }
 
+  /* ── Estados para los desplegables de metadatos ──────────── */
+  const [showDetalles, setShowDetalles] = useState(false)
+  const [showProveedorDetalle, setShowProveedorDetalle] = useState(false)
+
   // Cambia a `true` si prefieres que el clic abra directo en pestaña nueva
   const ABRIR_EN_PESTANA_NUEVA = false
 
+  /* ── Cargar Producto en el Detalle ───────────────────────── */
   const fetchData = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
-      const [resProd, resDoc] = await Promise.all([
-        api.get('/productos'),
-        api.get('/documentos/')
-      ])
+      let prodData = null
 
-      const productosArray = Array.isArray(resProd.data) ? resProd.data : (resProd.data?.data || [])
-      const documentosArray = Array.isArray(resDoc.data) ? resDoc.data : (resDoc.data?.data || [])
+      // 1. Intentar traerlo directamente de /productos/6
+      try {
+        const resSingleProd = await api.get(`/productos/${productoId}`)
+        prodData = resSingleProd.data
+      } catch (singleErr) {
+        console.warn('Endpoint /productos/id no disponible, buscando en lista completa...', singleErr)
+        
+        // 2. Fallback: pedir lista sin limite
+        const resProd = await api.get('/productos', { params: { limit: 10000, skip: 0 } })
+        
+        let productosArray = []
+        if (Array.isArray(resProd.data)) {
+          productosArray = resProd.data
+        } else if (Array.isArray(resProd.data?.items)) {
+          productosArray = resProd.data.items
+        }
 
-      const encontrado = productosArray.find((p) => String(p.id) === String(productoId))
-      
-      setProducto(encontrado || null)
-      setDocumentos(documentosArray)
+        // Importante: String() para comparar "6" con 6 sin problemas de tipo
+        prodData = productosArray.find((p) => String(p.id) === String(productoId))
+      }
+
+      setProducto(prodData || null)
+
+      // Cargar documentos
+      const resDoc = await api.get('/documentos/')
+      const docs = Array.isArray(resDoc.data) ? resDoc.data : (resDoc.data?.items || [])
+      setDocumentos(docs)
+
     } catch (err) {
-      setError(err.response?.data?.detail || 'Error al cargar el detalle del producto')
+      console.error(err)
+      setError(err.response?.data?.detail || 'Error al cargar la información')
     } finally {
       setLoading(false)
     }
@@ -253,7 +278,7 @@ export default function ProductoDetalleView() {
     <div className="space-y-6">
       {/* ENCABEZADO Y DATOS CLAVE DEL PRODUCTO */}
       <div className="flex items-start justify-between">
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-3 flex-1">
           <button
             onClick={() => navigate('/productos')}
             className="p-2 rounded-xl text-surface-500 hover:text-surface-800 hover:bg-surface-100 transition-colors mt-0.5"
@@ -261,7 +286,8 @@ export default function ProductoDetalleView() {
           >
             <ArrowLeft size={18} />
           </button>
-          <div>
+
+          <div className="flex-1">
             <div className="flex items-center gap-2.5">
               <h2 className="text-lg font-semibold text-surface-800">{producto.nombre}</h2>
               <span
@@ -274,22 +300,54 @@ export default function ProductoDetalleView() {
                 {producto.estado || 'ACTIVO'}
               </span>
             </div>
-            <p className="text-xs font-mono text-surface-500 mt-0.5">Código: {producto.codigo}</p>
 
-            <div className="flex flex-wrap gap-x-5 gap-y-1 mt-2 text-xs text-surface-600">
+            {/* Resumen compacto + botón para expandir */}
+            <button
+              onClick={() => setShowDetalles((prev) => !prev)}
+              className="mt-1.5 flex items-center gap-1.5 text-xs text-surface-500 hover:text-surface-700 transition-colors"
+            >
+              <span className="font-mono">{producto.codigo}</span>
               {producto.laboratorio && (
-                <span className="flex items-center gap-1.5">
-                  <Beaker size={13} className="text-surface-400" />
-                  Laboratorio: <strong className="font-medium text-surface-700">{producto.laboratorio}</strong>
-                </span>
+                <>
+                  <span className="text-surface-300">·</span>
+                  <span>{producto.laboratorio}</span>
+                </>
               )}
-              {producto.registro_sanitario && (
-                <span className="flex items-center gap-1.5 font-mono">
-                  <ShieldCheck size={13} className="text-surface-400" />
-                  Reg. Sanitario: {producto.registro_sanitario}
-                </span>
-              )}
-            </div>
+              <ChevronDown
+                size={13}
+                className={`transition-transform ${showDetalles ? 'rotate-180' : ''}`}
+              />
+            </button>
+
+            {/* Grid de metadatos: solo visible al expandir */}
+            {showDetalles && (
+              <div className="grid grid-cols-3 gap-x-6 gap-y-2 mt-3 max-w-lg">
+                <div>
+                  <span className="flex items-center gap-1 text-[10px] font-semibold text-surface-400 uppercase tracking-wide">
+                    <Tag size={11} /> Código
+                  </span>
+                  <span className="text-xs font-mono text-surface-700">{producto.codigo}</span>
+                </div>
+
+                {producto.laboratorio && (
+                  <div>
+                    <span className="flex items-center gap-1 text-[10px] font-semibold text-surface-400 uppercase tracking-wide">
+                      <Beaker size={11} /> Laboratorio
+                    </span>
+                    <span className="text-xs text-surface-700">{producto.laboratorio}</span>
+                  </div>
+                )}
+
+                {producto.registro_sanitario && (
+                  <div>
+                    <span className="flex items-center gap-1 text-[10px] font-semibold text-surface-400 uppercase tracking-wide">
+                      <ShieldCheck size={11} /> Reg. Sanitario
+                    </span>
+                    <span className="text-xs font-mono text-surface-700">{producto.registro_sanitario}</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -312,30 +370,53 @@ export default function ProductoDetalleView() {
         </div>
 
         {proveedor ? (
-          <div className="border border-surface-100 rounded-xl p-4 bg-surface-50 space-y-2">
-            <div>
-              <p className="text-xs font-semibold text-surface-800">{proveedor.nombre}</p>
-              {proveedor.identificacion && (
-                <p className="text-[11px] font-mono text-surface-500">NIT / ID: {proveedor.identificacion}</p>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-xs text-surface-600 border-t border-surface-200/60">
-              {proveedor.correo && (
-                <span className="flex items-center gap-1.5">
-                  <Mail size={13} className="text-surface-400" /> {proveedor.correo}
-                </span>
-              )}
-              {proveedor.telefono && (
-                <span className="flex items-center gap-1.5">
-                  <Phone size={13} className="text-surface-400" /> {proveedor.telefono}
-                </span>
-              )}
-              {proveedor.direccion && (
-                <span className="flex items-center gap-1.5">
-                  <MapPin size={13} className="text-surface-400" /> {proveedor.direccion}
-                </span>
-              )}
-            </div>
+          <div className="border border-surface-100 rounded-xl bg-surface-50 overflow-hidden">
+            {/* Fila resumen, siempre visible, clickeable */}
+            <button
+              onClick={() => setShowProveedorDetalle((prev) => !prev)}
+              className="w-full flex items-center justify-between p-4 text-left hover:bg-surface-100/60 transition-colors"
+            >
+              <div>
+                <span className="text-xs font-semibold text-surface-800 block">{proveedor.nombre}</span>
+                {proveedor.identificacion && (
+                  <span className="text-[11px] font-mono text-surface-500">NIT / ID: {proveedor.identificacion}</span>
+                )}
+              </div>
+              <ChevronDown
+                size={15}
+                className={`text-surface-400 shrink-0 transition-transform ${showProveedorDetalle ? 'rotate-180' : ''}`}
+              />
+            </button>
+
+            {/* Detalle expandido */}
+            {showProveedorDetalle && (
+              <div className="grid grid-cols-3 gap-3 px-4 pb-4 pt-1 border-t border-surface-200/60">
+                {proveedor.correo && (
+                  <div>
+                    <span className="flex items-center gap-1 text-[10px] font-semibold text-surface-400 uppercase tracking-wide">
+                      <Mail size={11} /> Correo
+                    </span>
+                    <span className="text-xs text-surface-700 truncate block">{proveedor.correo}</span>
+                  </div>
+                )}
+                {proveedor.telefono && (
+                  <div>
+                    <span className="flex items-center gap-1 text-[10px] font-semibold text-surface-400 uppercase tracking-wide">
+                      <Phone size={11} /> Teléfono
+                    </span>
+                    <span className="text-xs text-surface-700">{proveedor.telefono}</span>
+                  </div>
+                )}
+                {proveedor.direccion && (
+                  <div>
+                    <span className="flex items-center gap-1 text-[10px] font-semibold text-surface-400 uppercase tracking-wide">
+                      <MapPin size={11} /> Dirección
+                    </span>
+                    <span className="text-xs text-surface-700 truncate block">{proveedor.direccion}</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         ) : (
           <EmptyState message="Este producto no tiene un proveedor asociado." />

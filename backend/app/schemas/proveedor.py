@@ -1,5 +1,10 @@
+from __future__ import annotations
 from pydantic import BaseModel, EmailStr
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.schemas.producto import ProductoSimple
+
 
 class ProveedorBase(BaseModel):
     nombre: str
@@ -8,8 +13,10 @@ class ProveedorBase(BaseModel):
     direccion: Optional[str] = None
     correo: Optional[EmailStr] = None
 
+
 class ProveedorCreate(ProveedorBase):
     pass
+
 
 class ProveedorUpdate(BaseModel):
     nombre: Optional[str] = None
@@ -18,8 +25,21 @@ class ProveedorUpdate(BaseModel):
     direccion: Optional[str] = None
     correo: Optional[EmailStr] = None
 
+
+# Versión "plana" del proveedor, SIN el campo productos.
+# Se usa dentro de ProductoResponse.proveedor para cortar el ciclo.
+class ProveedorSimple(ProveedorBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+
+# Versión completa, usada cuando pides un proveedor directamente
+# (trae sus productos, pero esos productos NO vuelven a traer el proveedor completo)
 class ProveedorResponse(ProveedorBase):
     id: int
+    productos: List["ProductoSimple"] = []
 
     class Config:
         from_attributes = True

@@ -55,32 +55,35 @@ export default function ProveedorDetalleView() {
   const [docPreview, setDocPreview] = useState(null) // { id, nombre, url }
 
   /* ── Cargar datos ─────────────────────────────────────────── */
-  const fetchData = useCallback(async () => {
-    setLoading(true)
-    setError('')
-    try {
-      const [resProd, resDoc, resProv] = await Promise.all([
-        api.get('/productos'),
-        api.get('/documentos/'),
-        api.get('/proveedores')
-      ])
+const fetchData = useCallback(async () => {
+  setLoading(true)
+  setError('')
+  try {
+    const [resProd, resDoc, resProv] = await Promise.all([
+      api.get('/productos', { params: { proveedor_id: proveedorId, limit: 1000 } }), // 👈 filtra en el backend
+      api.get('/documentos/'),
+      api.get('/proveedores')
+    ])
 
-      const productosArray = Array.isArray(resProd.data) ? resProd.data : (resProd.data?.data || [])
-      const documentosArray = Array.isArray(resDoc.data) ? resDoc.data : (resDoc.data?.data || [])
-      const proveedoresArray = Array.isArray(resProv.data) ? resProv.data : (resProv.data?.data || [])
+    // 👇 el backend devuelve { items, total }
+    const productosArray = Array.isArray(resProd.data)
+      ? resProd.data
+      : (resProd.data?.items || resProd.data?.data || [])
 
-      setProductos(productosArray)
-      setDocumentos(documentosArray)
+    const documentosArray = Array.isArray(resDoc.data) ? resDoc.data : (resDoc.data?.data || [])
+    const proveedoresArray = Array.isArray(resProv.data) ? resProv.data : (resProv.data?.data || [])
 
-      const encontrado = proveedoresArray.find((p) => String(p.id) === String(proveedorId))
-      setProveedor(encontrado || null)
-    } catch (err) {
-      setError(err.response?.data?.detail || 'Error al cargar el detalle del proveedor')
-    } finally {
-      setLoading(false)
-    }
-  }, [proveedorId])
+    setProductos(productosArray)
+    setDocumentos(documentosArray)
 
+    const encontrado = proveedoresArray.find((p) => String(p.id) === String(proveedorId))
+    setProveedor(encontrado || null)
+  } catch (err) {
+    setError(err.response?.data?.detail || 'Error al cargar el detalle del proveedor')
+  } finally {
+    setLoading(false)
+  }
+}, [proveedorId])
   useEffect(() => {
     fetchData()
   }, [fetchData])
@@ -283,7 +286,7 @@ export default function ProveedorDetalleView() {
     <div className="space-y-6">
       {/* ENCABEZADO */}
       <div className="flex items-start justify-between">
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-3 flex-1">
           <button
             onClick={() => navigate('/proveedores')}
             className="p-2 rounded-xl text-surface-500 hover:text-surface-800 hover:bg-surface-100 transition-colors mt-0.5"
@@ -291,24 +294,46 @@ export default function ProveedorDetalleView() {
           >
             <ArrowLeft size={18} />
           </button>
-          <div>
+
+          <div className="flex-1">
             <h2 className="text-lg font-semibold text-surface-800">{proveedor.nombre}</h2>
-            <p className="text-xs font-mono text-surface-500">{proveedor.identificacion}</p>
-            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-surface-600">
+
+            {/* Grid de metadatos: etiqueta arriba, valor abajo */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-2 mt-3 max-w-2xl">
+              {proveedor.identificacion && (
+                <div>
+                  <span className="block text-[10px] font-semibold text-surface-400 uppercase tracking-wide">
+                    NIT / ID
+                  </span>
+                  <span className="text-xs font-mono text-surface-700">{proveedor.identificacion}</span>
+                </div>
+              )}
+
               {proveedor.correo && (
-                <span className="flex items-center gap-1.5">
-                  <Mail size={13} className="text-surface-400" /> {proveedor.correo}
-                </span>
+                <div>
+                  <span className="flex items-center gap-1 text-[10px] font-semibold text-surface-400 uppercase tracking-wide">
+                    <Mail size={11} /> Correo
+                  </span>
+                  <span className="text-xs text-surface-700 truncate block">{proveedor.correo}</span>
+                </div>
               )}
+
               {proveedor.telefono && (
-                <span className="flex items-center gap-1.5">
-                  <Phone size={13} className="text-surface-400" /> {proveedor.telefono}
-                </span>
+                <div>
+                  <span className="flex items-center gap-1 text-[10px] font-semibold text-surface-400 uppercase tracking-wide">
+                    <Phone size={11} /> Teléfono
+                  </span>
+                  <span className="text-xs text-surface-700">{proveedor.telefono}</span>
+                </div>
               )}
+
               {proveedor.direccion && (
-                <span className="flex items-center gap-1.5">
-                  <MapPin size={13} className="text-surface-400" /> {proveedor.direccion}
-                </span>
+                <div>
+                  <span className="flex items-center gap-1 text-[10px] font-semibold text-surface-400 uppercase tracking-wide">
+                    <MapPin size={11} /> Dirección
+                  </span>
+                  <span className="text-xs text-surface-700 truncate block">{proveedor.direccion}</span>
+                </div>
               )}
             </div>
           </div>

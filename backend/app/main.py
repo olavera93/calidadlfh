@@ -5,6 +5,8 @@ from app.database import Base, engine
 from app.routers import auth, odoo, sedes, temperaturas, usuarios
 from app.routers import proveedores, productos
 from app.routers import documento  # O documentos según nombraste el archivo
+from app.schemas.proveedor import ProveedorResponse, ProveedorSimple
+from app.schemas.producto import ProductoResponse, ProductoSimple
 
 Base.metadata.create_all(bind=engine)
 
@@ -26,3 +28,7 @@ app.include_router(odoo.router, prefix="/api", tags=["odoo"])
 app.include_router(proveedores.router)
 app.include_router(productos.router)
 app.include_router(documento.router, prefix="/api")
+
+
+ProveedorResponse.model_rebuild()
+ProductoResponse.model_rebuild()
