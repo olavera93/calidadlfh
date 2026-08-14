@@ -18,7 +18,7 @@ export default function Paginator({
   itemsPerPage,
   onPageChange,
   onItemsPerPageChange,
-  maxPerPage = 500
+  maxPerPage,
 }) {
   const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage))
 

@@ -16,60 +16,107 @@ export default function ExcelPreviewModal({
 }) {
   if (!isOpen) return null
 
-/* ── Helper para extraer y normalizar valores comparables ── */
-/* ── Helper para extraer y normalizar valores comparables ── */
-const getNormalizedValue = (item, key) => {
-  let val = null
+  /* ── Helper para extraer y normalizar valores comparables ── */
+ /* ── Helper ultra-robusto para extraer y normalizar valores comparables ── */
+/* ── Helper ultra-robusto para extraer y normalizar valores comparables ── */
+/* ── Helper que busca tanto por col.key como por col.label ── */
+/* ── Helper ultra-robusto con soporte para selects/IDs por defecto ── */
+/* ── Helper limpio para comparar Strings de Estado y demás columnas ── */
+const getNormalizedValue = (item, key, label = '') => {
+  if (!item) return ''
 
-  // 1. Extraer el valor considerando relaciones anidadas
-  if (key === 'proveedor_identificacion') {
-    val = item.proveedor?.identificacion ?? item.proveedor_identificacion
-  } else if (key === 'proveedor_nombre') {
-    val = item.proveedor?.nombre ?? item.proveedor_nombre
-  } else {
+  let val = undefined
+
+  // 1. Probar por la key directa de la columna
+  if (item[key] !== undefined && item[key] !== null) {
     val = item[key]
+  } 
+  // 2. Probar por el Label del Excel
+  else if (label && item[label] !== undefined && item[label] !== null) {
+    val = item[label]
+  } 
+  // 3. Fallback de claves comunes de Estado (por si en la BD se llama diferente a col.key)
+  else if (key === 'estado' || (label && label.toLowerCase().includes('estado'))) {
+    val = item.estado ?? item.estado_producto ?? item.status ?? item.state
+  }
+  // 4. Objetos anidados (Proveedor / Laboratorio)
+  else if (key.includes('proveedor') && (key.includes('identificacion') || key.includes('nit') || key.includes('id'))) {
+    val = item.proveedor?.identificacion ?? item.proveedor_identificacion ?? item.proveedor_id ?? item.nit
+  } else if (key.includes('proveedor')) {
+    val = item.proveedor?.nombre ?? item.proveedor_nombre ?? item.proveedor
+  } else if (key.includes('laboratorio')) {
+    val = item.laboratorio?.nombre ?? item.laboratorio_nombre ?? item.laboratorio
   }
 
-  // 2. Si es null, undefined o la cadena vacía, retornamos siempre ""
   if (val === null || val === undefined) {
     return ''
   }
 
-  // 3. Convertir a String, quitar espacios a los lados y pasar a minúsculas
-  return String(val).trim().toLowerCase()
+  // Sanitizar a string plano en minúsculas
+  const strVal = String(val).trim().toLowerCase().replace(/\s+/g, ' ')
+
+  // Falsos vacíos (OJO: 'activo' e 'inactivo' pasan limpios)
+  const falsyValues = ['', '0', 'null', 'undefined', '—', '-', 'n/a', 'selecciona un proveedor']
+
+  if (falsyValues.includes(strVal) && key !== 'estado') {
+    return ''
+  }
+
+  return strVal
 }
 
-  /* ── Analizar Estado de Importación (Nuevo / Modificado / Repetido) ── */
-  const processedData = useMemo(() => {
-    if (mode !== 'import') return data
+/* ── Analizar Estado de Importación ── */
+const processedData = useMemo(() => {
+  if (mode !== 'import') return data
 
-    const existingMap = new Map(
-      existingItems.map((item) => [String(item[matchKey] || '').trim().toLowerCase(), item])
+  // Encontrar la columna que sirve como matchKey para sacar su label
+  const matchCol = columns.find((c) => c.key === matchKey)
+  const matchLabel = matchCol ? matchCol.label : ''
+
+  const existingMap = new Map()
+  existingItems.forEach((item) => {
+    const keyVal = getNormalizedValue(item, matchKey, matchLabel)
+    if (keyVal) {
+      existingMap.set(keyVal, item)
+    }
+  })
+
+  return data.map((row) => {
+    const rowKey = getNormalizedValue(row, matchKey, matchLabel)
+    const existing = existingMap.get(rowKey)
+
+    if (!existing) {
+      return { ...row, _status: 'nuevo' }
+    }
+
+    // Filtrar columnas a comparar excluyendo la llave primaria
+    const colsToCompare = columns.filter((col) => col.key !== matchKey)
+
+   const isModified = colsToCompare.some((col) => {
+  const valNew = getNormalizedValue(row, col.key, col.label)
+  const valOld = getNormalizedValue(existing, col.key, col.label)
+
+  // Si el Excel no trae valor para este campo, el backend NO lo va a sobrescribir
+  // (ver importar-json: "if target_prov_id is not None"), así que no cuenta como cambio.
+  if (valNew === '') {
+    return false
+  }
+
+  if (valNew !== valOld) {
+    console.log(
+      `🔍 Diferencia en [${rowKey}] -> Campo: "${col.label || col.key}" | Excel: "${valNew}" vs BD: "${valOld}"`
     )
+    return true
+  }
+  return false
+})
 
-    return data.map((row) => {
-      const rowKey = String(row[matchKey] || '').trim().toLowerCase()
-      const existing = existingMap.get(rowKey)
-
-      if (!existing) {
-        return { ...row, _status: 'nuevo' }
-      }
-
-      // Comparar solo las columnas visibles definidas
-      const keysToCompare = columns.map((col) => col.key).filter((k) => k !== matchKey)
-
-      const isModified = keysToCompare.some((key) => {
-        const valNew = getNormalizedValue(row, key)
-        const valOld = getNormalizedValue(existing, key)
-        return valNew !== valOld
-      })
-
-      return {
-        ...row,
-        _status: isModified ? 'modificado' : 'repetido'
-      }
-    })
-  }, [data, mode, existingItems, matchKey, columns])
+    return {
+      ...row,
+      _status: isModified ? 'modificado' : 'repetido'
+    }
+  })
+}, [data, mode, existingItems, matchKey, columns])
 
   // Contadores para el resumen
   const stats = useMemo(() => {
@@ -169,7 +216,7 @@ const getNormalizedValue = (item, key) => {
 
                     {columns.map((col) => (
                       <td key={col.key} className="py-2 px-3 border-r border-surface-100 last:border-r-0 text-surface-700">
-                        {row[col.key] ?? '—'}
+                        {row[col.key] || '—'}
                       </td>
                     ))}
                   </tr>

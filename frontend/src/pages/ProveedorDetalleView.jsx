@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
-  ArrowLeft, Beaker, Package, FileText, Tag, Mail, Phone, MapPin,
+  ArrowLeft, Beaker, Building2, Package, FileText, Tag, Mail, Phone, MapPin,
   Plus, X, Download, Paperclip, ExternalLink, Edit2, Trash2
 } from 'lucide-react'
 import api from '../services/api'
 import { EmptyState } from '../components/ui/EmptyState'
+import Paginator from '../components/ui/Paginator'
 
 /**
  * Vista de detalle de un Proveedor. Ruta esperada: /proveedores/:id
@@ -23,6 +24,27 @@ const MAX_FILE_SIZE_MB = 10
 const ACCEPTED_EXTENSIONS = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx'
 const IMAGE_EXTENSION_REGEX = /\.(jpg|jpeg|png|gif|webp)$/i
 const OFFICE_EXTENSION_REGEX = /\.(doc|docx|xls|xlsx|ppt|pptx)$/i
+
+// Metadatos visuales por tipo de archivo: cada extensión recibe un color
+// propio para que la grilla de documentos no se vea plana.
+const FILE_TYPE_META = {
+  pdf: { label: 'PDF', classes: 'bg-rose-50 text-rose-600 border-rose-200' },
+  jpg: { label: 'IMG', classes: 'bg-violet-50 text-violet-600 border-violet-200' },
+  jpeg: { label: 'IMG', classes: 'bg-violet-50 text-violet-600 border-violet-200' },
+  png: { label: 'IMG', classes: 'bg-violet-50 text-violet-600 border-violet-200' },
+  gif: { label: 'IMG', classes: 'bg-violet-50 text-violet-600 border-violet-200' },
+  webp: { label: 'IMG', classes: 'bg-violet-50 text-violet-600 border-violet-200' },
+  doc: { label: 'DOC', classes: 'bg-blue-50 text-blue-600 border-blue-200' },
+  docx: { label: 'DOC', classes: 'bg-blue-50 text-blue-600 border-blue-200' },
+  xls: { label: 'XLS', classes: 'bg-emerald-50 text-emerald-600 border-emerald-200' },
+  xlsx: { label: 'XLS', classes: 'bg-emerald-50 text-emerald-600 border-emerald-200' }
+}
+const DEFAULT_FILE_META = { label: 'DOC', classes: 'bg-surface-100 text-surface-600 border-surface-200' }
+
+function getFileMeta(nombre = '') {
+  const ext = nombre.split('.').pop()?.toLowerCase()
+  return FILE_TYPE_META[ext] || DEFAULT_FILE_META
+}
 
 export default function ProveedorDetalleView() {
   const { id: proveedorId } = useParams()
@@ -54,36 +76,43 @@ export default function ProveedorDetalleView() {
   /* ── Estado para el Modal de Vista Previa de Archivo ─────── */
   const [docPreview, setDocPreview] = useState(null) // { id, nombre, url }
 
+  /* ── Paginación para Laboratorios y Documentos ────────────── */
+  const [currentPageLab, setCurrentPageLab] = useState(1)
+  const [itemsPerPageLab, setItemsPerPageLab] = useState(5)
+  const [currentPageDoc, setCurrentPageDoc] = useState(1)
+  const [itemsPerPageDoc, setItemsPerPageDoc] = useState(5)
+
   /* ── Cargar datos ─────────────────────────────────────────── */
-const fetchData = useCallback(async () => {
-  setLoading(true)
-  setError('')
-  try {
-    const [resProd, resDoc, resProv] = await Promise.all([
-      api.get('/productos', { params: { proveedor_id: proveedorId, limit: 1000 } }), // 👈 filtra en el backend
-      api.get('/documentos/'),
-      api.get('/proveedores')
-    ])
+  const fetchData = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const [resProd, resDoc, resProv] = await Promise.all([
+        api.get('/productos', { params: { proveedor_id: proveedorId, limit: 1000 } }), // 👈 filtra en el backend
+        api.get('/documentos/'),
+        api.get('/proveedores')
+      ])
 
-    // 👇 el backend devuelve { items, total }
-    const productosArray = Array.isArray(resProd.data)
-      ? resProd.data
-      : (resProd.data?.items || resProd.data?.data || [])
+      // 👇 el backend devuelve { items, total }
+      const productosArray = Array.isArray(resProd.data)
+        ? resProd.data
+        : (resProd.data?.items || resProd.data?.data || [])
 
-    const documentosArray = Array.isArray(resDoc.data) ? resDoc.data : (resDoc.data?.data || [])
-    const proveedoresArray = Array.isArray(resProv.data) ? resProv.data : (resProv.data?.data || [])
+      const documentosArray = Array.isArray(resDoc.data) ? resDoc.data : (resDoc.data?.data || [])
+      const proveedoresArray = Array.isArray(resProv.data) ? resProv.data : (resProv.data?.data || [])
 
-    setProductos(productosArray)
-    setDocumentos(documentosArray)
+      setProductos(productosArray)
+      setDocumentos(documentosArray)
 
-    const encontrado = proveedoresArray.find((p) => String(p.id) === String(proveedorId))
-    setProveedor(encontrado || null)
-  } catch (err) {
-    setError(err.response?.data?.detail || 'Error al cargar el detalle del proveedor')
-  } finally {
-    setLoading(false)
-  }
-}, [proveedorId])
+      const encontrado = proveedoresArray.find((p) => String(p.id) === String(proveedorId))
+      setProveedor(encontrado || null)
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Error al cargar el detalle del proveedor')
+    } finally {
+      setLoading(false)
+    }
+  }, [proveedorId])
+
   useEffect(() => {
     fetchData()
   }, [fetchData])
@@ -117,6 +146,31 @@ const fetchData = useCallback(async () => {
       )
     })
   }, [documentos, proveedorId])
+
+  // Ajustar página si cambia el tamaño de la lista
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(laboratorios.length / itemsPerPageLab))
+    if (currentPageLab > maxPage) {
+      setCurrentPageLab(maxPage)
+    }
+  }, [laboratorios.length, itemsPerPageLab, currentPageLab])
+
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(documentosDelProveedor.length / itemsPerPageDoc))
+    if (currentPageDoc > maxPage) {
+      setCurrentPageDoc(maxPage)
+    }
+  }, [documentosDelProveedor.length, itemsPerPageDoc, currentPageDoc])
+
+  const paginatedLaboratorios = useMemo(() => {
+    const startIndex = (currentPageLab - 1) * itemsPerPageLab
+    return laboratorios.slice(startIndex, startIndex + itemsPerPageLab)
+  }, [laboratorios, currentPageLab, itemsPerPageLab])
+
+  const paginatedDocumentos = useMemo(() => {
+    const startIndex = (currentPageDoc - 1) * itemsPerPageDoc
+    return documentosDelProveedor.slice(startIndex, startIndex + itemsPerPageDoc)
+  }, [documentosDelProveedor, currentPageDoc, itemsPerPageDoc])
 
   /* ── Manejo de Etiquetas ─────────────────────────────────── */
   const handleAddTag = (e) => {
@@ -283,10 +337,12 @@ const fetchData = useCallback(async () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* ENCABEZADO */}
-      <div className="flex items-start justify-between">
-        <div className="flex items-start gap-3 flex-1">
+      <div className="relative overflow-hidden rounded-2xl border border-surface-100 bg-white p-6 shadow-sm">
+        <div className="absolute inset-x-0 top-0 h-1.5 bg-[#22D3EE]" />
+
+        <div className="flex items-start gap-4">
           <button
             onClick={() => navigate('/proveedores')}
             className="p-2 rounded-xl text-surface-500 hover:text-surface-800 hover:bg-surface-100 transition-colors mt-0.5"
@@ -295,14 +351,18 @@ const fetchData = useCallback(async () => {
             <ArrowLeft size={18} />
           </button>
 
-          <div className="flex-1">
-            <h2 className="text-lg font-semibold text-surface-800">{proveedor.nombre}</h2>
+          <div className="hidden sm:flex h-12 w-12 shrink-0 rounded-2xl bg-[#0B1220] items-center justify-center shadow-sm">
+            <Building2 size={22} className="text-white" />
+          </div>
 
-            {/* Grid de metadatos: etiqueta arriba, valor abajo */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-2 mt-3 max-w-2xl">
+          <div className="flex-1 min-w-0">
+            <h2 className="text-xl font-bold text-surface-800">{proveedor.nombre}</h2>
+
+            {/* Metadatos con título propio, no simples etiquetas */}
+            <div className="mt-3 flex flex-wrap items-start gap-x-6 gap-y-2.5">
               {proveedor.identificacion && (
-                <div>
-                  <span className="block text-[10px] font-semibold text-surface-400 uppercase tracking-wide">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[10px] font-semibold text-surface-400 uppercase tracking-wide">
                     NIT / ID
                   </span>
                   <span className="text-xs font-mono text-surface-700">{proveedor.identificacion}</span>
@@ -310,29 +370,32 @@ const fetchData = useCallback(async () => {
               )}
 
               {proveedor.correo && (
-                <div>
+                <div className="flex flex-col gap-0.5 border-l border-surface-200 pl-6">
                   <span className="flex items-center gap-1 text-[10px] font-semibold text-surface-400 uppercase tracking-wide">
-                    <Mail size={11} /> Correo
+                    <Mail size={11} className="text-[#22D3EE]" />
+                    Correo
                   </span>
-                  <span className="text-xs text-surface-700 truncate block">{proveedor.correo}</span>
+                  <span className="text-xs text-surface-700">{proveedor.correo}</span>
                 </div>
               )}
 
               {proveedor.telefono && (
-                <div>
+                <div className="flex flex-col gap-0.5 border-l border-surface-200 pl-6">
                   <span className="flex items-center gap-1 text-[10px] font-semibold text-surface-400 uppercase tracking-wide">
-                    <Phone size={11} /> Teléfono
+                    <Phone size={11} className="text-[#22D3EE]" />
+                    Teléfono
                   </span>
                   <span className="text-xs text-surface-700">{proveedor.telefono}</span>
                 </div>
               )}
 
               {proveedor.direccion && (
-                <div>
+                <div className="flex flex-col gap-0.5 border-l border-surface-200 pl-6">
                   <span className="flex items-center gap-1 text-[10px] font-semibold text-surface-400 uppercase tracking-wide">
-                    <MapPin size={11} /> Dirección
+                    <MapPin size={11} className="text-[#22D3EE]" />
+                    Dirección
                   </span>
-                  <span className="text-xs text-surface-700 truncate block">{proveedor.direccion}</span>
+                  <span className="text-xs text-surface-700">{proveedor.direccion}</span>
                 </div>
               )}
             </div>
@@ -340,128 +403,170 @@ const fetchData = useCallback(async () => {
         </div>
       </div>
 
-      {/* LABORATORIOS Y PRODUCTOS */}
-      <div className="bg-white rounded-2xl border border-surface-100 p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <Beaker size={16} className="text-brand-500" />
-          <h3 className="text-sm font-semibold text-surface-800">
-            Laboratorios y productos ({laboratorios.length})
-          </h3>
-        </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+        {/* LABORATORIOS Y PRODUCTOS */}
+        <div className="bg-white rounded-2xl border border-surface-100 shadow-sm p-5 flex flex-col justify-between min-h-[400px]">
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <span className="flex items-center justify-center h-8 w-8 rounded-xl bg-[#0B1220] text-[#22D3EE]">
+                <Beaker size={16} />
+              </span>
+              <h3 className="text-sm font-semibold text-surface-800">
+                Laboratorios y productos ({laboratorios.length})
+              </h3>
+            </div>
 
-        {laboratorios.length === 0 ? (
-          <EmptyState message="Este proveedor no tiene productos registrados." />
-        ) : (
-          <div className="space-y-4">
-            {laboratorios.map((lab) => (
-              <div key={lab.nombre} className="border border-surface-100 rounded-xl overflow-hidden">
-                <div className="bg-surface-50 px-4 py-2 flex items-center justify-between">
-                  <span className="text-xs font-semibold text-surface-700">{lab.nombre}</span>
-                  <span className="text-[11px] text-surface-400">{lab.productos.length} producto(s)</span>
-                </div>
-                <ul className="divide-y divide-surface-100">
-                  {lab.productos.map((p) => (
-                    <li key={p.id} className="px-4 py-2 flex items-center gap-2 text-xs text-surface-700">
-                      <Package size={13} className="text-surface-400 shrink-0" />
-                      <span className="font-mono text-surface-500">{p.codigo}</span>
-                      <span>{p.nombre}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* DOCUMENTOS ASIGNADOS */}
-      <div className="bg-white rounded-2xl border border-surface-100 p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <FileText size={16} className="text-brand-500" />
-            <h3 className="text-sm font-semibold text-surface-800">
-              Documentos asignados ({documentosDelProveedor.length})
-            </h3>
-          </div>
-
-          <button
-            onClick={handleOpenCreateModal}
-            className="bg-brand-500 hover:bg-brand-600 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
-          >
-            <Plus size={14} /> Nuevo Documento
-          </button>
-        </div>
-
-        {documentosDelProveedor.length === 0 ? (
-          <EmptyState message="Este proveedor no tiene documentos asignados." />
-        ) : (
-          <ul className="divide-y divide-surface-100">
-            {documentosDelProveedor.map((doc) => (
-              <li key={doc.id} className="py-2.5 flex items-center justify-between gap-3">
-                <button
-                  type="button"
-                  onClick={() => handleOpenPreview(doc)}
-                  disabled={!doc.ruta_archivo}
-                  className="flex items-center gap-2 min-w-0 text-left group disabled:cursor-not-allowed"
-                  title={doc.ruta_archivo ? 'Ver archivo' : 'Sin archivo adjunto'}
-                >
-                  <FileText
-                    size={14}
-                    className={`shrink-0 ${doc.ruta_archivo ? 'text-brand-400 group-hover:text-brand-600' : 'text-surface-300'}`}
-                  />
-                  <div className="min-w-0">
-                    <p
-                      className={`text-xs font-medium truncate ${
-                        doc.ruta_archivo ? 'text-surface-800 group-hover:text-brand-600 group-hover:underline' : 'text-surface-500'
-                      }`}
-                    >
-                      {doc.nombre_docu}
-                    </p>
-                    {doc.producto && (
-                      <p className="text-[11px] text-surface-500">
-                        Vía producto: {doc.producto.nombre} ({doc.producto.laboratorio || 'Sin lab'})
-                      </p>
-                    )}
-                  </div>
-                </button>
-
-                <div className="flex items-center gap-3 shrink-0">
-                  {Array.isArray(doc.etiquetas) && doc.etiquetas.length > 0 && (
-                    <div className="flex flex-wrap gap-1 justify-end">
-                      {doc.etiquetas.map((tag, idx) => (
+            {laboratorios.length === 0 ? (
+              <EmptyState message="Este proveedor no tiene productos registrados." />
+            ) : (
+              <div className="space-y-4">
+                {paginatedLaboratorios.map((lab) => (
+                  <div key={lab.nombre} className="rounded-xl border border-surface-100 overflow-hidden">
+                    <div className="bg-surface-50 px-4 py-2.5 flex items-center justify-between">
+                      <span className="text-xs font-semibold text-surface-700">{lab.nombre}</span>
+                      <span className="text-[10px] font-semibold text-surface-500 bg-white border border-surface-200 rounded-full px-2 py-0.5">
+                        {lab.productos.length} producto(s)
+                      </span>
+                    </div>
+                    <div className="p-3 flex flex-wrap gap-2">
+                      {lab.productos.map((p) => (
                         <span
-                          key={idx}
-                          className="bg-brand-50 text-brand-700 text-[10px] px-1.5 py-0.5 rounded-md flex items-center gap-1 font-medium border border-brand-100"
+                          key={p.id}
+                          className="inline-flex items-center gap-1.5 bg-surface-50 border border-surface-200 rounded-lg px-2.5 py-1.5 text-xs text-surface-700"
                         >
-                          <Tag size={10} />
-                          {tag}
+                          <Package size={12} className="text-[#22D3EE] shrink-0" />
+                          <span className="font-mono text-surface-500">{p.codigo}</span>
+                          <span className="truncate max-w-[180px]">{p.nombre}</span>
                         </span>
                       ))}
                     </div>
-                  )}
-
-                  {/* Acciones de Editar y Eliminar */}
-                  <div className="flex items-center gap-1 pl-2 border-l border-surface-100">
-                    <button
-                      onClick={() => handleOpenEditModal(doc)}
-                      className="p-1 rounded-md text-surface-400 hover:text-brand-600 hover:bg-surface-100 transition-colors"
-                      title="Editar documento"
-                    >
-                      <Edit2 size={13} />
-                    </button>
-                    <button
-                      onClick={() => handleOpenDeleteModal(doc)}
-                      className="p-1 rounded-md text-surface-400 hover:text-danger-500 hover:bg-danger-50 transition-colors"
-                      title="Eliminar documento"
-                    >
-                      <Trash2 size={13} />
-                    </button>
                   </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+                ))}
+              </div>
+            )}
+          </div>
+
+          {laboratorios.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-surface-100">
+              <Paginator
+                currentPage={currentPageLab}
+                totalItems={laboratorios.length}
+                itemsPerPage={itemsPerPageLab}
+                onPageChange={setCurrentPageLab}
+                onItemsPerPageChange={setItemsPerPageLab}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* DOCUMENTOS ASIGNADOS */}
+        <div className="bg-white rounded-2xl border border-surface-100 shadow-sm p-5 flex flex-col justify-between min-h-[400px]">
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <span className="flex items-center justify-center h-8 w-8 rounded-xl bg-[#0B1220] text-[#22D3EE]">
+                  <FileText size={16} />
+                </span>
+                <h3 className="text-sm font-semibold text-surface-800">
+                  Documentos ({documentosDelProveedor.length})
+                </h3>
+              </div>
+
+              <button
+                onClick={handleOpenCreateModal}
+                className="bg-[#0B1220] hover:bg-[#16233A] text-[#22D3EE] text-xs font-medium px-3 py-2 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
+              >
+                <Plus size={14} /> Nuevo Documento
+              </button>
+            </div>
+
+            {documentosDelProveedor.length === 0 ? (
+              <EmptyState message="Este proveedor no tiene documentos asignados." />
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {paginatedDocumentos.map((doc) => {
+                  const fileMeta = getFileMeta(doc.nombre_docu)
+                  return (
+                    <div
+                      key={doc.id}
+                      className="group relative rounded-xl border border-surface-100 bg-surface-50/70 hover:bg-white hover:border-brand-200 hover:shadow-sm transition-all p-3.5"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenPreview(doc)}
+                          disabled={!doc.ruta_archivo}
+                          className="flex items-start gap-3 min-w-0 text-left flex-1 disabled:cursor-not-allowed"
+                          title={doc.ruta_archivo ? 'Ver archivo' : 'Sin archivo adjunto'}
+                        >
+                          <span className={`shrink-0 h-10 w-10 rounded-lg border flex items-center justify-center text-[10px] font-bold ${fileMeta.classes}`}>
+                            {fileMeta.label}
+                          </span>
+                          <span className="min-w-0">
+                            <span
+                              className={`block text-xs font-semibold truncate ${
+                                doc.ruta_archivo ? 'text-surface-800 group-hover:text-brand-600' : 'text-surface-500'
+                              }`}
+                            >
+                              {doc.nombre_docu}
+                            </span>
+                            {doc.producto && (
+                              <span className="block text-[10px] text-surface-500 truncate mt-0.5">
+                                Vía producto: {doc.producto.nombre} ({doc.producto.laboratorio || 'Sin lab'})
+                              </span>
+                            )}
+                            {Array.isArray(doc.etiquetas) && doc.etiquetas.length > 0 && (
+                              <span className="mt-1.5 flex flex-wrap gap-1">
+                                {doc.etiquetas.map((tag, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="bg-brand-50 text-brand-700 text-[10px] px-1.5 py-0.5 rounded-md flex items-center gap-1 font-medium border border-brand-100"
+                                  >
+                                    <Tag size={9} />
+                                    {tag}
+                                  </span>
+                                ))}
+                              </span>
+                            )}
+                          </span>
+                        </button>
+
+                        <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => handleOpenEditModal(doc)}
+                            className="p-1.5 text-surface-400 hover:text-brand-500 hover:bg-white rounded-lg transition-colors"
+                            title="Editar documento"
+                          >
+                            <Edit2 size={13} />
+                          </button>
+                          <button
+                            onClick={() => handleOpenDeleteModal(doc)}
+                            className="p-1.5 text-surface-400 hover:text-danger-500 hover:bg-white rounded-lg transition-colors"
+                            title="Eliminar documento"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          {documentosDelProveedor.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-surface-100">
+              <Paginator
+                currentPage={currentPageDoc}
+                totalItems={documentosDelProveedor.length}
+                itemsPerPage={itemsPerPageDoc}
+                onPageChange={setCurrentPageDoc}
+                onItemsPerPageChange={setItemsPerPageDoc}
+              />
+            </div>
+          )}
+        </div>
       </div>
 
       {/* MODAL CREAR / EDITAR DOCUMENTO */}

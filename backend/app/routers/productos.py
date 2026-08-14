@@ -146,7 +146,7 @@ def delete_producto(producto_id: int, db: Session = Depends(get_db)):
 def importar_productos_json(items: List[ProductoImportItem], db: Session = Depends(get_db)):
     creados = 0
     actualizados = 0
-    nits_no_encontrados = []  # 👈 nuevo: para saber qué NIT no hizo match
+    nits_no_encontrados = []  # 👈 para saber qué NIT no hizo match
 
     proveedores = db.query(Proveedor).all()
     prov_by_id = {p.id: p.id for p in proveedores}
@@ -174,6 +174,10 @@ def importar_productos_json(items: List[ProductoImportItem], db: Session = Depen
             existente.nombre = item.nombre
             if item.laboratorio is not None:
                 existente.laboratorio = item.laboratorio
+            if item.registro_sanitario is not None:
+                existente.registro_sanitario = item.registro_sanitario
+            if item.estado is not None:
+                existente.estado = item.estado
             if target_prov_id is not None:
                 existente.proveedor_id = target_prov_id
             actualizados += 1
@@ -182,6 +186,8 @@ def importar_productos_json(items: List[ProductoImportItem], db: Session = Depen
                 codigo=item.codigo,
                 nombre=item.nombre,
                 laboratorio=item.laboratorio,
+                registro_sanitario=item.registro_sanitario,
+                estado=item.estado or "ACTIVO",
                 proveedor_id=target_prov_id
             )
             db.add(nuevo)

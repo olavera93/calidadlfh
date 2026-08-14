@@ -11,22 +11,48 @@ export function ExcelExportButton({
   isTemplate = false,
   className = ''
 }) {
+  /* ── Extraer valor limpio asegurando que IDs por defecto (0, null, '0') salgan vacíos ── */
+  const getValue = (item, key) => {
+    if (!item) return ''
+
+    let val = undefined
+
+    // 1. Extraer el valor directo o anidado
+    if (key.includes('proveedor') && (key.includes('identificacion') || key.includes('nit') || key.includes('id'))) {
+      val = item.proveedor?.identificacion ?? item.proveedor_identificacion ?? item.proveedor_id ?? item.nit
+    } else if (key.includes('proveedor')) {
+      val = item.proveedor?.nombre ?? item.proveedor_nombre ?? item.proveedor
+    } else if (key.includes('laboratorio')) {
+      val = item.laboratorio?.nombre ?? item.laboratorio_nombre ?? item.laboratorio
+    } else {
+      val = item[key]
+    }
+
+    if (val === null || val === undefined) return ''
+
+    // 2. Si el valor es 0, '0' o similares (el valor por defecto del select sin proveedor)
+    const strVal = String(val).trim().toLowerCase()
+    if (strVal === '0' || strVal === 'null' || strVal === 'undefined' || strVal === '—') {
+      return ''
+    }
+
+    return val
+  }
+
   const handleExport = () => {
     let exportData = []
 
     if (isTemplate) {
-      // Si es plantilla, crea una fila de ejemplo vacía con los nombres de las columnas
       const templateRow = {}
       columns.forEach((col) => {
         templateRow[col.label] = ''
       })
       exportData = [templateRow]
     } else {
-      // Mapear los datos según el formato de columnas recibido
       exportData = data.map((item) => {
         const row = {}
         columns.forEach((col) => {
-          row[col.label] = item[col.key] || ''
+          row[col.label] = getValue(item, col.key)
         })
         return row
       })
