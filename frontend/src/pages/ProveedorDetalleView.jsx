@@ -76,9 +76,7 @@ export default function ProveedorDetalleView() {
   /* ── Estado para el Modal de Vista Previa de Archivo ─────── */
   const [docPreview, setDocPreview] = useState(null) // { id, nombre, url }
 
-  /* ── Paginación para Laboratorios y Documentos ────────────── */
-  const [currentPageLab, setCurrentPageLab] = useState(1)
-  const [itemsPerPageLab, setItemsPerPageLab] = useState(5)
+  /* ── Paginación para Documentos ───────────────────────────── */
   const [currentPageDoc, setCurrentPageDoc] = useState(1)
   const [itemsPerPageDoc, setItemsPerPageDoc] = useState(5)
 
@@ -117,12 +115,15 @@ export default function ProveedorDetalleView() {
     fetchData()
   }, [fetchData])
 
-  /* ── Productos de este proveedor, agrupados por laboratorio ── */
-  const laboratorios = useMemo(() => {
-    const productosDelProveedor = productos.filter(
+  /* ── Productos de este proveedor (todos, sin importar laboratorio) ── */
+  const productosDelProveedor = useMemo(() => {
+    return productos.filter(
       (p) => String(p.proveedor_id ?? p.proveedor?.id) === String(proveedorId)
     )
+  }, [productos, proveedorId])
 
+  /* ── Productos de este proveedor, agrupados por laboratorio ── */
+  const laboratorios = useMemo(() => {
     const grupos = new Map()
     productosDelProveedor.forEach((p) => {
       const labKey = p.laboratorio?.trim() || 'Sin laboratorio'
@@ -133,7 +134,7 @@ export default function ProveedorDetalleView() {
     return Array.from(grupos.entries())
       .map(([nombre, items]) => ({ nombre, productos: items }))
       .sort((a, b) => a.nombre.localeCompare(b.nombre))
-  }, [productos, proveedorId])
+  }, [productosDelProveedor])
 
   /* ── Documentos asignados a este proveedor (directo o vía producto) ── */
   const documentosDelProveedor = useMemo(() => {
@@ -147,25 +148,13 @@ export default function ProveedorDetalleView() {
     })
   }, [documentos, proveedorId])
 
-  // Ajustar página si cambia el tamaño de la lista
-  useEffect(() => {
-    const maxPage = Math.max(1, Math.ceil(laboratorios.length / itemsPerPageLab))
-    if (currentPageLab > maxPage) {
-      setCurrentPageLab(maxPage)
-    }
-  }, [laboratorios.length, itemsPerPageLab, currentPageLab])
-
+  // Ajustar página si cambia el tamaño de la lista de documentos
   useEffect(() => {
     const maxPage = Math.max(1, Math.ceil(documentosDelProveedor.length / itemsPerPageDoc))
     if (currentPageDoc > maxPage) {
       setCurrentPageDoc(maxPage)
     }
   }, [documentosDelProveedor.length, itemsPerPageDoc, currentPageDoc])
-
-  const paginatedLaboratorios = useMemo(() => {
-    const startIndex = (currentPageLab - 1) * itemsPerPageLab
-    return laboratorios.slice(startIndex, startIndex + itemsPerPageLab)
-  }, [laboratorios, currentPageLab, itemsPerPageLab])
 
   const paginatedDocumentos = useMemo(() => {
     const startIndex = (currentPageDoc - 1) * itemsPerPageDoc
@@ -413,7 +402,7 @@ export default function ProveedorDetalleView() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
-        {/* LABORATORIOS Y PRODUCTOS */}
+        {/* PRODUCTOS Y LABORATORIOS (resumen + acceso directo al listado filtrado) */}
         <div className="bg-white rounded-2xl border border-surface-100 shadow-sm p-5 flex flex-col justify-between min-h-[400px]">
           <div>
             <div className="flex items-center gap-2 mb-4">
@@ -421,51 +410,61 @@ export default function ProveedorDetalleView() {
                 <Beaker size={16} />
               </span>
               <h3 className="text-sm font-semibold text-surface-800">
-                Laboratorios y productos ({laboratorios.length})
+                Productos y laboratorios
               </h3>
             </div>
 
-            {laboratorios.length === 0 ? (
+            {productosDelProveedor.length === 0 ? (
               <EmptyState message="Este proveedor no tiene productos registrados." />
             ) : (
-              <div className="space-y-4">
-                {paginatedLaboratorios.map((lab) => (
-                  <div key={lab.nombre} className="rounded-xl border border-surface-100 overflow-hidden">
-                    <div className="bg-surface-50 px-4 py-2.5 flex items-center justify-between">
-                      <span className="text-xs font-semibold text-surface-700">{lab.nombre}</span>
-                      <span className="text-[10px] font-semibold text-surface-500 bg-white border border-surface-200 rounded-full px-2 py-0.5">
-                        {lab.productos.length} producto(s)
-                      </span>
-                    </div>
-                    <div className="p-3 flex flex-wrap gap-2">
-                      {lab.productos.map((p) => (
-                        <span
-                          key={p.id}
-                          className="inline-flex items-center gap-1.5 bg-surface-50 border border-surface-200 rounded-lg px-2.5 py-1.5 text-xs text-surface-700"
-                        >
-                          <Package size={12} className="text-[#22D3EE] shrink-0" />
-                          <span className="font-mono text-surface-500">{p.codigo}</span>
-                          <span className="truncate max-w-[180px]">{p.nombre}</span>
-                        </span>
-                      ))}
-                    </div>
+              <>
+                {/* Resumen numérico: evita repetir toda la lista aquí, el detalle vive en Productos */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-xl border border-surface-100 bg-surface-50/70 p-4">
+                    <span className="flex items-center gap-1.5 text-[10px] font-semibold text-surface-400 uppercase tracking-wide">
+                      <Package size={12} className="text-[#22D3EE]" /> Productos
+                    </span>
+                    <span className="mt-1.5 block text-2xl font-bold text-surface-800">
+                      {productosDelProveedor.length}
+                    </span>
                   </div>
-                ))}
-              </div>
+                  <div className="rounded-xl border border-surface-100 bg-surface-50/70 p-4">
+                    <span className="flex items-center gap-1.5 text-[10px] font-semibold text-surface-400 uppercase tracking-wide">
+                      <Beaker size={12} className="text-[#22D3EE]" /> Laboratorios
+                    </span>
+                    <span className="mt-1.5 block text-2xl font-bold text-surface-800">
+                      {laboratorios.length}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Chips con los nombres de laboratorio, sin desglosar producto por producto */}
+                <div className="mt-4 flex flex-wrap gap-1.5">
+                  {laboratorios.slice(0, 8).map((lab) => (
+                    <span
+                      key={lab.nombre}
+                      className="text-[10px] font-medium text-surface-600 bg-surface-50 border border-surface-200 rounded-full px-2.5 py-1"
+                    >
+                      {lab.nombre}
+                    </span>
+                  ))}
+                  {laboratorios.length > 8 && (
+                    <span className="text-[10px] font-medium text-surface-400 px-2 py-1">
+                      +{laboratorios.length - 8} más
+                    </span>
+                  )}
+                </div>
+              </>
             )}
           </div>
 
-          {laboratorios.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-surface-100">
-              <Paginator
-                currentPage={currentPageLab}
-                totalItems={laboratorios.length}
-                itemsPerPage={itemsPerPageLab}
-                onPageChange={setCurrentPageLab}
-                onItemsPerPageChange={setItemsPerPageLab}
-              />
-            </div>
-          )}
+          {/* Acceso directo: lleva al listado general de Productos ya filtrado por este proveedor */}
+          <button
+            onClick={() => navigate(`/productos?proveedor_id=${proveedorId}`)}
+            className="mt-4 w-full bg-[#0B1220] hover:bg-[#16233A] text-[#22D3EE] text-xs font-semibold px-4 py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+          >
+            <Package size={14} /> Ver productos de este proveedor
+          </button>
         </div>
 
         {/* DOCUMENTOS ASIGNADOS */}

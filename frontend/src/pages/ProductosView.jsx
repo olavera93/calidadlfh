@@ -6,7 +6,7 @@ import { EmptyState } from '../components/ui/EmptyState'
 import Paginator from '../components/ui/Paginator'
 import ExcelPreviewModal from '../components/ui/ExcelPreviewModal'
 import { ExcelExportButton } from '../components/ui/ExcelActions'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 
 export default function ProductosView() {
   // Datos
@@ -19,9 +19,12 @@ export default function ProductosView() {
   const fileInputRef = useRef(null)
 
   // Filtros y Búsqueda
+  const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [proveedorFilter, setProveedorFilter] = useState('')
+  // Se inicializa con lo que venga en la URL (ej. ?proveedor_id=5 al llegar
+  // desde el botón "Ver productos" en el detalle de un Proveedor)
+  const [proveedorFilter, setProveedorFilter] = useState(searchParams.get('proveedor_id') || '')
 
   // Selección (Map<id, producto> para que sobreviva el cambio de página) y Paginación
   const [selectedItems, setSelectedItems] = useState(new Map())
@@ -81,6 +84,27 @@ export default function ProductosView() {
     const timer = setTimeout(() => setDebouncedSearch(search), 350)
     return () => clearTimeout(timer)
   }, [search])
+
+  /* ── Sincroniza el filtro con la URL (ej. al llegar desde el botón
+     "Ver productos de este proveedor" en el detalle de un Proveedor) ── */
+  useEffect(() => {
+    const proveedorIdUrl = searchParams.get('proveedor_id') || ''
+    setProveedorFilter(proveedorIdUrl)
+  }, [searchParams])
+
+  /* ── Cambiar el filtro desde el <select> también actualiza la URL ─── */
+  const handleProveedorFilterChange = (value) => {
+    setProveedorFilter(value)
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      if (value) {
+        next.set('proveedor_id', value)
+      } else {
+        next.delete('proveedor_id')
+      }
+      return next
+    })
+  }
 
   /* ── Volver a página 1 cuando cambian filtros/búsqueda/tamaño ─────── */
   useEffect(() => {
@@ -389,7 +413,7 @@ export default function ProductosView() {
 
         <select
           value={proveedorFilter}
-          onChange={(e) => setProveedorFilter(e.target.value)}
+          onChange={(e) => handleProveedorFilterChange(e.target.value)}
           className="input-base w-auto"
         >
           <option value="">Todos los Proveedores</option>
