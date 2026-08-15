@@ -13,7 +13,7 @@ class Producto(Base):
     estado = Column(String(255), nullable=True)
 
     # Clave foránea que conecta con la tabla proveedor
-    proveedor_id = Column(Integer, ForeignKey("proveedor.id"), nullable=False)
+    proveedor_id = Column(Integer, ForeignKey("proveedor.id"), nullable=True)
 
 
     # Relación inversa con el modelo Proveedor

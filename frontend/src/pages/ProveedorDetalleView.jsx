@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Beaker, Building2, Package, FileText, Tag, Mail, Phone, MapPin,
-  Plus, X, Download, Paperclip, ExternalLink, Edit2, Trash2
+  Plus, X, Download, Paperclip, ExternalLink, Edit2, Trash2, Users
 } from 'lucide-react'
 import api from '../services/api'
 import { EmptyState } from '../components/ui/EmptyState'
@@ -356,7 +356,16 @@ export default function ProveedorDetalleView() {
           </div>
 
           <div className="flex-1 min-w-0">
-            <h2 className="text-xl font-bold text-surface-800">{proveedor.nombre}</h2>
+            <div className="flex items-start justify-between gap-3">
+              <h2 className="text-xl font-bold text-surface-800">{proveedor.nombre}</h2>
+
+              <button
+                onClick={() => navigate(`/proveedores/${proveedorId}/contactos`)}
+                className="shrink-0 bg-[#0B1220] hover:bg-[#16233A] text-[#22D3EE] text-xs font-medium px-3 py-2 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
+              >
+                <Users size={14} /> Contactos
+              </button>
+            </div>
 
             {/* Metadatos con título propio, no simples etiquetas */}
             <div className="mt-3 flex flex-wrap items-start gap-x-6 gap-y-2.5">

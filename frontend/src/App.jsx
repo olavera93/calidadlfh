@@ -15,6 +15,7 @@ import ProveedoresView from './pages/ProveedoresView'
 import DocumentosView from './pages/DocumentosView'  // Asegúrate de que la ruta sea correcta
 import ProveedorDetalleView from './pages/ProveedorDetalleView'
 import ProductoDetalleView from './pages/ProductoDetalleView'  // Asegúrate de que la ruta sea correcta
+import Contactos from './pages/Contactosproveedoreview'
 
 
 function ProtectedRoute({ children, adminOnly = false }) {
@@ -112,8 +113,16 @@ element={
           </ProtectedRoute>
         }
       />
-
-
+<Route
+  path="/proveedores/:id/contactos"
+  element={
+    <ProtectedRoute>
+      <Layout>
+        <Contactos />
+      </Layout>
+    </ProtectedRoute>
+  }
+/>
       <Route
         path="/odoo/recepciones"
         element={
