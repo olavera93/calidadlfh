@@ -16,6 +16,7 @@ import DocumentosView from './pages/DocumentosView'  // Asegúrate de que la rut
 import ProveedorDetalleView from './pages/ProveedorDetalleView'
 import ProductoDetalleView from './pages/ProductoDetalleView'  // Asegúrate de que la ruta sea correcta
 import Contactos from './pages/Contactosproveedoreview'
+import ContactosView from './pages/ContactosView'
 
 
 function ProtectedRoute({ children, adminOnly = false }) {
@@ -113,6 +114,17 @@ element={
           </ProtectedRoute>
         }
       />
+{/* Vista global de Contactos (todos los proveedores, con búsqueda/filtro/import-export) */}
+<Route
+  path="/contactos"
+  element={
+    <ProtectedRoute>
+      <Layout>
+        <ContactosView />
+      </Layout>
+    </ProtectedRoute>
+  }
+/>
 <Route
   path="/proveedores/:id/contactos"
   element={
@@ -123,6 +135,9 @@ element={
     </ProtectedRoute>
   }
 />
+
+
+
       <Route
         path="/odoo/recepciones"
         element={

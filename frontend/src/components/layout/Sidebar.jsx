@@ -137,6 +137,7 @@ export default function Sidebar() {
         <NavItem to="/Productos"         icon={Package}       label="Productos"      collapsed={collapsed} />
         <NavItem to="/Proveedores"       icon={Users}         label="Proveedores"    collapsed={collapsed} />
         <NavItem to="/documentos"        icon={FileText}      label="Documentos"     collapsed={collapsed} />
+        <NavItem to="/contactos"         icon={Users}         label="Contactos"      collapsed={collapsed} />
         <SectionLabel label="Odoo" collapsed={collapsed} />
         <NavItem to="/odoo/recepciones"  icon={PackageCheck}  label="Recepciones"    collapsed={collapsed} />
         <NavItem to="/odoo/vencimientos" icon={CalendarX2}    label="Vencimientos"   collapsed={collapsed} />
