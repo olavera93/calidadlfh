@@ -82,7 +82,6 @@ def test_connection(
 
 
 # ── Recepciones ────────────────────────────────────────────────────────────────
-
 @router.get("/recepciones", response_model=list[RecepcionItem])
 def get_recepciones(
     fecha_inicio:      Optional[str] = Query(None),
@@ -95,10 +94,12 @@ def get_recepciones(
 ):
     setting = _get_credentials(db)
     try:
-        return svc.get_recepciones(
+        data = svc.get_recepciones(
             setting.url, setting.database, setting.uid, setting.password,
             fecha_inicio, fecha_fin, ubicacion_origen, ubicacion_destino, numero_movimiento,
         )
+        # Aplicar corrección
+        return svc.aplicar_correccion_productos_locales(data, db)
     except svc.OdooConnectionError as e:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
 
@@ -119,8 +120,12 @@ def get_recepciones_xlsx(
             setting.url, setting.database, setting.uid, setting.password,
             fecha_inicio, fecha_fin, ubicacion_origen, ubicacion_destino, numero_movimiento,
         )
+        # Aplicar corrección para el Excel
+        data = svc.aplicar_correccion_productos_locales(data, db)
     except svc.OdooConnectionError as e:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+
+    # ... (Resto del código del Excel sigue igual) ...
 
     headers    = ["Fecha", "Origen", "Destino", "Proveedor", "N° Orden",
                   "Factura", "Producto", "Lote", "Vencimiento", "Cantidad"]
@@ -170,10 +175,12 @@ def get_vencimientos(
 ):
     setting = _get_credentials(db)
     try:
-        return svc.get_vencimientos(
+        data = svc.get_vencimientos(
             setting.url, setting.database, setting.uid, setting.password,
             fecha_hasta, fecha_desde,
         )
+        # Aplicar corrección
+        return svc.aplicar_correccion_productos_locales(data, db)
     except svc.OdooConnectionError as e:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
 
@@ -191,8 +198,13 @@ def get_vencimientos_xlsx(
             setting.url, setting.database, setting.uid, setting.password,
             fecha_hasta, fecha_desde,
         )
+        # Aplicar corrección para el Excel
+        data = svc.aplicar_correccion_productos_locales(data, db)
     except svc.OdooConnectionError as e:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+
+    # ... (Resto del código del Excel sigue igual) ...
+
 
     headers    = ["Vencimiento", "Días restantes", "Producto", "Lote", "Ubicación", "Cantidad"]
     col_widths = [14, 14, 45, 20, 30, 12]

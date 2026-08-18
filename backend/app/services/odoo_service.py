@@ -371,3 +371,71 @@ def get_vencimientos(
 
     result.sort(key=lambda x: x.vencimiento)
     return result
+
+import re
+from sqlalchemy.orm import Session
+from app.models.producto import Producto  # Modelo local[cite: 3]
+
+def aplicar_correccion_productos_locales(items: list, db: Session) -> list:
+    """
+    Recorre los ítems de Odoo. Si un producto contiene '(copia)', extrae su código,
+    busca en la DB local (solo lectura) y asigna el NOMBRE local manteniendo el código.
+    """
+    if not items:
+        return items
+
+    try:
+        # 1. Filtrar ítems que contienen '(copia)'
+        items_con_copia = [
+            item for item in items 
+            if item.producto and "(copia)" in item.producto.lower()
+        ]
+
+        if not items_con_copia:
+            return items
+
+        # 2. Cargar productos locales en memoria[cite: 3]
+        productos_locales = db.query(Producto.codigo, Producto.nombre).all()
+        mapa_codigo = {p.codigo.strip(): p.nombre for p in productos_locales if p.codigo}
+        mapa_nombre = {p.nombre.strip().lower(): p.nombre for p in productos_locales if p.nombre}
+
+        # 3. Procesar y reemplazar preservando el CÓDIGO
+        for item in items_con_copia:
+            original = item.producto
+            
+            # Quitar '(copia)' u '(Copia)'
+            limpio = re.sub(r'\s*\((?:copia|Copia)\)', '', original, flags=re.IGNORECASE).strip()
+            
+            # Extraer si viene en formato: [2202015] Nombre Producto
+            match = re.match(r'^\[(.*?)\]\s*(.*)$', limpio)
+            
+            if match:
+                cod_extraido = match.group(1).strip()
+                nom_extraido = match.group(2).strip()
+                
+                nombre_oficial = None
+                # Buscar por código local primero[cite: 3]
+                if cod_extraido in mapa_codigo:
+                    nombre_oficial = mapa_codigo[cod_extraido]
+                # Buscar por nombre en minúsculas como respaldo
+                elif nom_extraido.lower() in mapa_nombre:
+                    nombre_oficial = mapa_nombre[nom_extraido.lower()]
+
+                if nombre_oficial:
+                    # MANTIENE EL CÓDIGO PARA QUE EL BUSCADOR DE REACT PUEDA ENCONTRARLO
+                    item.producto = f"[{cod_extraido}] {nombre_oficial}"
+                else:
+                    item.producto = limpio
+            else:
+                # Si no trae corchetes, intentar coincidencia completa
+                if limpio in mapa_codigo:
+                    item.producto = f"[{limpio}] {mapa_codigo[limpio]}"
+                elif limpio.lower() in mapa_nombre:
+                    item.producto = mapa_nombre[limpio.lower()]
+                else:
+                    item.producto = limpio
+
+    except Exception as e:
+        print(f"[ERROR Odoo-Local Mapping]: {e}")
+
+    return items

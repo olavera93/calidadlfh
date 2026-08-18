@@ -7,6 +7,7 @@ import Paginator from '../components/ui/Paginator'
 import ExcelPreviewModal from '../components/ui/ExcelPreviewModal'
 import { ExcelExportButton } from '../components/ui/ExcelActions'
 import { useNavigate } from 'react-router-dom'
+import { SearchableSelect } from '../components/ui/SearchableSelect' // ajusta la ruta según tu estructura
 
 const MAX_FILE_SIZE_MB = 10
 const ACCEPTED_EXTENSIONS = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx'
@@ -740,41 +741,36 @@ setProveedores(resProv.data)
               </div>
 
               {/* CAMPO DINÁMICO SEGÚN LA ELECCIÓN */}
-              {formDocumento.tipo_asociacion === 'producto' ? (
-                <div>
-                  <label className="text-xs font-semibold text-surface-600">Producto *</label>
-                  <select
-                    required
-                    value={formDocumento.producto_id}
-                    onChange={(e) => setFormDocumento({ ...formDocumento, producto_id: e.target.value })}
-                    className="input-base w-full mt-1"
-                  >
-                    <option value="">Selecciona un producto...</option>
-                    {productos.map((prod) => (
-                      <option key={prod.id} value={prod.id}>
-                        {prod.codigo} - {prod.nombre} ({prod.laboratorio || 'Sin Lab'})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : (
-                <div>
-                  <label className="text-xs font-semibold text-surface-600">Proveedor *</label>
-                  <select
-                    required
-                    value={formDocumento.proveedor_id}
-                    onChange={(e) => setFormDocumento({ ...formDocumento, proveedor_id: e.target.value })}
-                    className="input-base w-full mt-1"
-                  >
-                    <option value="">Selecciona un proveedor...</option>
-                    {proveedores.map((prov) => (
-                      <option key={prov.id} value={prov.id}>
-                        {prov.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
+{formDocumento.tipo_asociacion === 'producto' ? (
+  <div>
+    <label className="text-xs font-semibold text-surface-600">Producto *</label>
+    <SearchableSelect
+      required
+      value={formDocumento.producto_id}
+      onChange={(id) => setFormDocumento({ ...formDocumento, producto_id: id })}
+      placeholder="Buscar producto por código, nombre o laboratorio..."
+      options={productos.map((prod) => ({
+        id: prod.id,
+        label: `${prod.codigo} - ${prod.nombre}`,
+        subtext: prod.laboratorio ? `Lab: ${prod.laboratorio}` : 'Sin Lab'
+      }))}
+    />
+  </div>
+) : (
+  <div>
+    <label className="text-xs font-semibold text-surface-600">Proveedor *</label>
+    <SearchableSelect
+      required
+      value={formDocumento.proveedor_id}
+      onChange={(id) => setFormDocumento({ ...formDocumento, proveedor_id: id })}
+      placeholder="Buscar proveedor..."
+      options={proveedores.map((prov) => ({
+        id: prov.id,
+        label: prov.nombre
+      }))}
+    />
+  </div>
+)}
 
               {/* ARCHIVO */}
               <div>
