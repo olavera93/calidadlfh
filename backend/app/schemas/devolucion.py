@@ -14,6 +14,8 @@ class DevolucionBase(BaseModel):
     forma_farmaceutica: Optional[str] = None
     lote: str
     fecha_de_vencimiento: Optional[date] = None
+    fecha_recibido: Optional[date] = None
+    fecha_entregado: Optional[date] = None
     registrosanitario: Optional[str] = None
     cantidad: int
     causa: Optional[str] = None
@@ -34,6 +36,8 @@ class DevolucionUpdate(BaseModel):
     forma_farmaceutica: Optional[str] = None
     lote: Optional[str] = None
     fecha_de_vencimiento: Optional[date] = None
+    fecha_recibido: Optional[date] = None
+    fecha_entregado: Optional[date] = None
     registrosanitario: Optional[str] = None
     cantidad: Optional[int] = None
     causa: Optional[str] = None

@@ -84,7 +84,6 @@ def generar_pdf_devolucion(devoluciones: list) -> io.BytesIO:
     else:
         logo = Paragraph("<b>LA FARMACIA HOMEOPÁTICA</b>", bold8)
 
-    # Mismo diseño que el pie de página (columna etiqueta + columna valor, sin fondo gris)
     info_box_data = [
         [Paragraph("FECHA:", label_style), Paragraph(fecha_registro, value_style)],
         [Paragraph("PROVEEDOR:", label_style), Paragraph(prov_nombre.upper(), value_style)],
@@ -94,17 +93,17 @@ def generar_pdf_devolucion(devoluciones: list) -> io.BytesIO:
     info_box_table = Table(
         info_box_data, 
         colWidths=[2.8 * cm, 16.54 * cm], 
-        rowHeights=[0.55 * cm, 0.55 * cm, 0.55 * cm],
+        rowHeights=None,
         hAlign="CENTER"
     )
     info_box_table.setStyle(
         TableStyle([
             ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
             ("LEFTPADDING", (0, 0), (-1, -1), 4),
             ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-            ("TOPPADDING", (0, 0), (-1, -1), 1),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
         ])
     )
 
@@ -123,7 +122,6 @@ def generar_pdf_devolucion(devoluciones: list) -> io.BytesIO:
 
     # ---------- TABLA PRINCIPAL ----------
     headers = [
-        "N° FACTURA",
         "DESCRIPCIÓN DEL\nPRODUCTO FARMACÉUTICO",
         "FORMA\nFARMACÉUTICA",
         "LOTE",
@@ -138,8 +136,15 @@ def generar_pdf_devolucion(devoluciones: list) -> io.BytesIO:
     max_rows = 11
     for i in range(max_rows):
         dev = devoluciones[i] if i < len(devoluciones) else None
+        
+        # Extraer laboratorio del producto o del proveedor como respaldo
+        lab_nombre = ""
+        if dev and getattr(dev, "producto", None):
+            lab_nombre = getattr(dev.producto, "laboratorio", None) or (
+                dev.proveedor.nombre if getattr(dev, "proveedor", None) else ""
+            )
+
         data.append([
-            "",
             Paragraph(
                 dev.producto.nombre if dev and getattr(dev, "producto", None) else "",
                 regular7_left,
@@ -153,26 +158,23 @@ def generar_pdf_devolucion(devoluciones: list) -> io.BytesIO:
                 regular7,
             ),
             Paragraph(dev.registrosanitario if dev else "", regular7),
-            Paragraph(
-                dev.proveedor.nombre if dev and getattr(dev, "proveedor", None) else "",
-                regular7_left,
-            ),
+            Paragraph(lab_nombre, regular7_left),
             Paragraph(
                 str(dev.cantidad) if dev and dev.cantidad is not None else "", regular7
             ),
             Paragraph(str(dev.causa) if dev and dev.causa else "", regular7_left),
         ])
 
+    # Se ajustan los anchos para ocupar los 26.34 cm totales perfectamente
     col_widths = [
-        2.2 * cm,
-        5.6 * cm,
+        6.6 * cm,
         2.4 * cm,
         1.8 * cm,
         2.2 * cm,
         2.6 * cm,
         3.0 * cm,
         1.8 * cm,
-        4.74 * cm,
+        5.94 * cm,
     ]
 
     row_heights = [0.9 * cm] + [0.75 * cm] * max_rows

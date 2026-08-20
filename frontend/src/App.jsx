@@ -18,6 +18,8 @@ import ProductoDetalleView from './pages/ProductoDetalleView'  // Asegúrate de 
 import Contactos from './pages/Contactosproveedoreview'
 import ContactosView from './pages/ContactosView'
 import DevolucionesView from './pages/DevolucionesView'  // Asegúrate de que la ruta sea correcta
+import DevoluciondetalleView from './pages/Devoluciondetalleview'  // Asegúrate de que la ruta sea correcta 
+
 
 
 function ProtectedRoute({ children, adminOnly = false }) {
@@ -143,6 +145,16 @@ element={
     <ProtectedRoute>
       <Layout>
         <Contactos />
+      </Layout>
+    </ProtectedRoute>
+  }
+/>
+<Route
+  path="/devoluciones/:id"
+  element={
+    <ProtectedRoute>
+      <Layout>
+        <DevoluciondetalleView />
       </Layout>
     </ProtectedRoute>
   }

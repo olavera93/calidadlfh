@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session, joinedload
@@ -39,6 +40,8 @@ def listar_devoluciones(
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
     estado: Optional[str] = None,
+    fecha_recibido: Optional[date] = None,
+    fecha_entregado: Optional[date] = None,
     db: Session = Depends(get_db),
 ):
     query = db.query(Devolucion).options(
@@ -48,6 +51,10 @@ def listar_devoluciones(
 
     if estado:
         query = query.filter(Devolucion.estado == estado)
+    if fecha_recibido:
+        query = query.filter(Devolucion.fecha_recibido == fecha_recibido)
+    if fecha_entregado:
+        query = query.filter(Devolucion.fecha_entregado == fecha_entregado)
 
     total = query.count()
     items = query.order_by(Devolucion.id.desc()).offset(skip).limit(limit).all()
@@ -141,3 +148,17 @@ def eliminar_devolucion(devolucion_id: int, db: Session = Depends(get_db)):
     db.delete(devolucion)
     db.commit()
     return None
+
+
+@router.get("/formato/{numero_de_formato}", response_model=list[DevolucionResponse])
+def obtener_devoluciones_por_formato(numero_de_formato: str, db: Session = Depends(get_db)):
+    devoluciones = (
+        db.query(Devolucion)
+        .options(joinedload(Devolucion.producto), joinedload(Devolucion.proveedor))
+        .filter(Devolucion.numero_de_formato == numero_de_formato)
+        .order_by(Devolucion.id.asc())
+        .all()
+    )
+    if not devoluciones:
+        raise HTTPException(status_code=404, detail="No se encontraron devoluciones con ese número de formato.")
+    return devoluciones

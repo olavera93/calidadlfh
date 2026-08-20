@@ -1,14 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { Plus, Search, Edit2, Trash2, RotateCcw, Calendar, Package, Building2, X, Download } from 'lucide-react'
+import { Plus, Search, Edit2, Trash2, RotateCcw, Calendar, Package, Building2, X, Download, Eye } from 'lucide-react'
 import api from '../services/api'
 import { EmptyState } from '../components/ui/EmptyState'
 import Paginator from '../components/ui/Paginator'
 import ExcelPreviewModal from '../components/ui/ExcelPreviewModal'
+import { useNavigate } from 'react-router-dom'
 
 export default function DevolucionesView() {
   const [devoluciones, setDevoluciones] = useState([])
   const [productos, setProductos] = useState([])
   const [proveedores, setProveedores] = useState([])
+
+  const navigate = useNavigate()
   
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -51,6 +54,8 @@ export default function DevolucionesView() {
     forma_farmaceutica: '',
     lote: '',
     fecha_de_vencimiento: '',
+    fecha_recibido: '',
+    fecha_entregado: '',
     registrosanitario: '',
     cantidad: 1,
     causa: '',
@@ -78,7 +83,8 @@ export default function DevolucionesView() {
       setProductos(Array.isArray(resProds.data) ? resProds.data : resProds.data.items || [])
       setProveedores(Array.isArray(resProvs.data) ? resProvs.data : resProvs.data.items || [])
     } catch (err) {
-      setError(err.response?.data?.detail || 'Error al cargar los datos de devoluciones')
+      const detail = err.response?.data?.detail
+      setError(Array.isArray(detail) ? detail.map((d) => `${d.loc.slice(-1)}: ${d.msg}`).join(', ') : detail || 'Error al cargar los datos de devoluciones')
     } finally {
       setLoading(false)
     }
@@ -190,7 +196,7 @@ export default function DevolucionesView() {
     setShowExcelModal(true)
   }
 
-   const handleConfirmExport = async () => {
+  const handleConfirmExport = async () => {
     try {
       setLoading(true)
       const ids = selectedIds.size > 0 ? Array.from(selectedIds).join(',') : null
@@ -217,11 +223,13 @@ export default function DevolucionesView() {
       window.URL.revokeObjectURL(url)
       setShowExcelModal(false)
     } catch (err) {
-      alert(err.response?.data?.detail || 'Error al generar el archivo PDF con formato')
+      const detail = err.response?.data?.detail
+      alert(Array.isArray(detail) ? detail.map((d) => `${d.loc.slice(-1)}: ${d.msg}`).join('\n') : detail || 'Error al generar el archivo PDF con formato')
     } finally {
       setLoading(false)
     }
   }
+
   /* ── Guardar / Editar ────────────────────────────────────── */
   const handleSave = async (e) => {
     e.preventDefault()
@@ -230,7 +238,10 @@ export default function DevolucionesView() {
         ...formData,
         producto_id: Number(formData.producto_id),
         proveedor_id: Number(formData.proveedor_id),
-        cantidad: Number(formData.cantidad)
+        cantidad: Number(formData.cantidad),
+        fecha_de_vencimiento: formData.fecha_de_vencimiento || null,
+        fecha_recibido: formData.fecha_recibido || null,
+        fecha_entregado: formData.fecha_entregado || null,
       }
 
       if (editingDevolucion) {
@@ -242,7 +253,11 @@ export default function DevolucionesView() {
       setShowModal(false)
       fetchData()
     } catch (err) {
-      alert(err.response?.data?.detail || 'Error al guardar la devolución')
+      const detail = err.response?.data?.detail
+      const msg = Array.isArray(detail)
+        ? detail.map((d) => `${d.loc.slice(-1)}: ${d.msg}`).join('\n')
+        : detail || 'Error al guardar la devolución'
+      alert(msg)
     }
   }
 
@@ -256,7 +271,8 @@ export default function DevolucionesView() {
       setDevToDelete(null)
       fetchData()
     } catch (err) {
-      alert(err.response?.data?.detail || 'Error al eliminar la devolución')
+      const detail = err.response?.data?.detail
+      alert(Array.isArray(detail) ? detail.map((d) => `${d.loc.slice(-1)}: ${d.msg}`).join('\n') : detail || 'Error al eliminar la devolución')
     } finally {
       setDeleting(false)
     }
@@ -272,6 +288,8 @@ export default function DevolucionesView() {
         forma_farmaceutica: dev.forma_farmaceutica || '',
         lote: dev.lote || '',
         fecha_de_vencimiento: dev.fecha_de_vencimiento || '',
+        fecha_recibido: dev.fecha_recibido || '',
+        fecha_entregado: dev.fecha_entregado || '',
         registrosanitario: dev.registrosanitario || '',
         cantidad: dev.cantidad || 1,
         causa: dev.causa || '',
@@ -283,7 +301,12 @@ export default function DevolucionesView() {
       })
     } else {
       setEditingDevolucion(null)
-      const nuevoConsecutivo = String(devoluciones.length + 1).padStart(3, '0')
+      //  Correcto: obtiene los formatos únicos y calcula el máximo numérico
+const formatosUnicos = Array.from(
+  new Set(devoluciones.map((d) => parseInt(d.numero_de_formato, 10)).filter(Boolean))
+)
+const maxFormato = formatosUnicos.length > 0 ? Math.max(...formatosUnicos) : 0
+const nuevoConsecutivo = String(maxFormato + 1).padStart(3, '0')
       setFormData({
         ...initialFormState,
         numero_de_formato: nuevoConsecutivo
@@ -461,6 +484,14 @@ export default function DevolucionesView() {
                       >
                         <Trash2 size={15} />
                       </button>
+
+                      <button
+                        onClick={() => navigate(`/devoluciones/${dev.id}`)}
+                        className="p-1.5 text-surface-400 hover:text-brand-500 hover:bg-brand-50/50 rounded-lg transition-colors ml-1"
+                        title="Ver detalle"
+                      >
+                        <Eye size={15} />
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -632,9 +663,20 @@ export default function DevolucionesView() {
                   />
                 </div>
 
+                {/* Fecha Entregado */}
+                <div>
+                  <label className="text-xs font-semibold text-surface-600">Fecha de Entrega</label>
+                  <input
+                    type="date"
+                    value={formData.fecha_entregado}
+                    onChange={(e) => setFormData({ ...formData, fecha_entregado: e.target.value })}
+                    className="input-base w-full mt-1"
+                  />
+                </div>
+
                 {/* Quién Recibe */}
                 <div>
-                  <label className="text-xs font-semibold text-surface-600">Quién Recibe</label>
+                  <label className="text-xs font-semibold text-surface-600">Quién Recibe (Proveedor)</label>
                   <input
                     type="text"
                     value={formData.quien_recibe}
@@ -643,18 +685,35 @@ export default function DevolucionesView() {
                     placeholder="Nombre del responsable"
                   />
                 </div>
+
+                {/* Fecha Recibido */}
+                <div>
+                  <label className="text-xs font-semibold text-surface-600">Fecha de Recepción</label>
+                  <input
+                    type="date"
+                    value={formData.fecha_recibido}
+                    onChange={(e) => setFormData({ ...formData, fecha_recibido: e.target.value })}
+                    className="input-base w-full mt-1"
+                  />
+                </div>
               </div>
 
-              {/* Causa */}
+              {/* Causa / Motivo */}
               <div>
                 <label className="text-xs font-semibold text-surface-600">Causa / Motivo</label>
-                <textarea
-                  rows="2"
+                <select
                   value={formData.causa}
                   onChange={(e) => setFormData({ ...formData, causa: e.target.value })}
-                  className="input-base w-full mt-1 resize-none"
-                  placeholder="Detalle la causa de la devolución..."
-                />
+                  className="input-base w-full mt-1 bg-white"
+                >
+                  <option value="">Seleccione una causa...</option>
+                  <option value="Producto no conforme">Producto no conforme</option>
+                  <option value="Próximos a vencer">Próximos a vencer</option>
+                  <option value="Alertas sanitarias">Alertas sanitarias</option>
+                  <option value="Baja rotación">Baja rotación</option>
+                  <option value="Solicitud del proveedor">Solicitud del proveedor</option>
+                  <option value="Solicitud del ente regulatorio INVIMA">Solicitud del ente regulatorio INVIMA</option>
+                </select>
               </div>
 
               {/* Observaciones */}

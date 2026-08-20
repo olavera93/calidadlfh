@@ -15,6 +15,8 @@ class Devolucion(Base):
     lote = Column(String(50), nullable=False)
     fecha_creacion = Column(DateTime, server_default=func.now())
     fecha_de_vencimiento = Column(Date, nullable=True)
+    fecha_recibido = Column(Date, nullable=True)
+    fecha_entregado = Column(Date, nullable=True)
     registrosanitario = Column(String(100), nullable=True)
     cantidad = Column(Integer, nullable=False)
     causa = Column(Text, nullable=True)
