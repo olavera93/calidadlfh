@@ -16,3 +16,5 @@ class Proveedor(Base):
     productos = relationship("Producto", back_populates="proveedor")
 
     contactos = relationship("Contacto", back_populates="proveedor", cascade="all, delete-orphan")
+
+    devoluciones = relationship("Devolucion", back_populates="proveedor")

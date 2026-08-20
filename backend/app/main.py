@@ -8,6 +8,7 @@ from app.routers import documento  # O documentos según nombraste el archivo
 from app.schemas.proveedor import ProveedorResponse, ProveedorSimple
 from app.schemas.producto import ProductoResponse, ProductoSimple
 from app.routers import contacto
+from app.routers import devolucion  
 
 Base.metadata.create_all(bind=engine)
 
@@ -29,8 +30,7 @@ app.include_router(odoo.router, prefix="/api", tags=["odoo"])
 app.include_router(proveedores.router)
 app.include_router(productos.router)
 app.include_router(documento.router, prefix="/api")
-
-
+app.include_router(devolucion.router, prefix="/api")
 
 app.include_router(contacto.router)
 

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState, useRef } from 'react'
+import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { Plus, Search, Edit2, Trash2, Package, X, Upload, Download } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import api from '../services/api'
@@ -7,6 +7,7 @@ import Paginator from '../components/ui/Paginator'
 import ExcelPreviewModal from '../components/ui/ExcelPreviewModal'
 import { ExcelExportButton } from '../components/ui/ExcelActions'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import ProveedorSearchSelect from '../components/ui/ProveedorSearchSelect'
 
 export default function ProductosView() {
   // Datos
@@ -72,12 +73,22 @@ export default function ProductosView() {
     proveedor_id: ''
   })
 
-  /* ── Cargar Proveedores (una sola vez, lista corta para el <select>) ── */
+  /* ── Cargar Proveedores (una sola vez, lista corta para el combobox) ── */
   useEffect(() => {
     api.get('/proveedores')
       .then((res) => setProveedores(res.data))
       .catch((err) => setError(err.response?.data?.detail || 'Error al cargar proveedores'))
   }, [])
+
+  /* ── Opciones de proveedor para el combobox con búsqueda (filtro y modal) ── */
+  const proveedorOptions = useMemo(
+    () => proveedores.map((p) => ({
+      id: p.id,
+      label: p.nombre,
+      sublabel: p.identificacion || undefined
+    })),
+    [proveedores]
+  )
 
   /* ── Debounce de la búsqueda: espera 350ms tras dejar de teclear ──── */
   useEffect(() => {
@@ -92,7 +103,7 @@ export default function ProductosView() {
     setProveedorFilter(proveedorIdUrl)
   }, [searchParams])
 
-  /* ── Cambiar el filtro desde el <select> también actualiza la URL ─── */
+  /* ── Cambiar el filtro también actualiza la URL ─── */
   const handleProveedorFilterChange = (value) => {
     setProveedorFilter(value)
     setSearchParams((prev) => {
@@ -411,18 +422,14 @@ export default function ProductosView() {
           />
         </div>
 
-        <select
+        <ProveedorSearchSelect
+          options={proveedorOptions}
           value={proveedorFilter}
-          onChange={(e) => handleProveedorFilterChange(e.target.value)}
-          className="input-base w-auto"
-        >
-          <option value="">Todos los Proveedores</option>
-          {proveedores.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.nombre}
-            </option>
-          ))}
-        </select>
+          onChange={(id) => handleProveedorFilterChange(id)}
+          placeholder="Todos los Proveedores"
+          clearable
+          className="w-56"
+        />
 
         <div className="flex items-center gap-2 shrink-0">
           <ExcelExportButton
@@ -664,19 +671,13 @@ export default function ProductosView() {
               </div>
               <div>
                 <label className="text-xs font-semibold text-surface-600">Proveedor</label>
-                <select
-                  required
+                <ProveedorSearchSelect
+                  options={proveedorOptions}
                   value={formProducto.proveedor_id}
-                  onChange={(e) => setFormProducto({ ...formProducto, proveedor_id: e.target.value })}
-                  className="input-base w-full mt-1"
-                >
-                  <option value="">Selecciona un proveedor</option>
-                  {proveedores.map((prov) => (
-                    <option key={prov.id} value={prov.id}>
-                      {prov.nombre}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(id) => setFormProducto({ ...formProducto, proveedor_id: id })}
+                  placeholder="Selecciona un proveedor"
+                  className="mt-1"
+                />
               </div>
               <div className="flex justify-end gap-2 pt-3">
                 <button

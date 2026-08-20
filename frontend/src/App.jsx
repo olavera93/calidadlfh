@@ -17,6 +17,7 @@ import ProveedorDetalleView from './pages/ProveedorDetalleView'
 import ProductoDetalleView from './pages/ProductoDetalleView'  // Asegúrate de que la ruta sea correcta
 import Contactos from './pages/Contactosproveedoreview'
 import ContactosView from './pages/ContactosView'
+import DevolucionesView from './pages/DevolucionesView'  // Asegúrate de que la ruta sea correcta
 
 
 function ProtectedRoute({ children, adminOnly = false }) {
@@ -121,6 +122,17 @@ element={
     <ProtectedRoute>
       <Layout>
         <ContactosView />
+      </Layout>
+    </ProtectedRoute>
+  }
+/>
+
+<Route
+  path="/devoluciones"
+  element={
+    <ProtectedRoute>  
+      <Layout>
+        <DevolucionesView />
       </Layout>
     </ProtectedRoute>
   }

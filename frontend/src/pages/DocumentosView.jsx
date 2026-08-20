@@ -8,6 +8,7 @@ import ExcelPreviewModal from '../components/ui/ExcelPreviewModal'
 import { ExcelExportButton } from '../components/ui/ExcelActions'
 import { useNavigate } from 'react-router-dom'
 import { SearchableSelect } from '../components/ui/SearchableSelect' // ajusta la ruta según tu estructura
+import ProveedorSearchSelect from '../components/ui/ProveedorSearchSelect'
 
 const MAX_FILE_SIZE_MB = 10
 const ACCEPTED_EXTENSIONS = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx'
@@ -145,6 +146,14 @@ setProveedores(resProv.data)
     })
   }
 
+  const proveedorOptions = React.useMemo(
+  () => proveedores.map((p) => ({
+    id: p.id,
+    label: p.nombre,
+    sublabel: p.identificacion || undefined // si tienes NIT, ayuda mucho a buscar
+  })),
+  [proveedores]
+)
   const isPageFullySelected =
     documentosPaginados.length > 0 && documentosPaginados.every((d) => selectedIds.has(d.id))
 
@@ -448,18 +457,14 @@ setProveedores(resProv.data)
           />
         </div>
 
-        <select
-          value={proveedorFilter}
-          onChange={(e) => setProveedorFilter(e.target.value)}
-          className="input-base w-auto"
-        >
-          <option value="">Todos los Proveedores</option>
-          {proveedores.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.nombre}
-            </option>
-          ))}
-        </select>
+        <ProveedorSearchSelect
+  options={proveedorOptions}
+  value={proveedorFilter}
+  onChange={(id) => handleProveedorFilterChange(id)}
+  placeholder="Todos los Proveedores"
+  clearable
+  className="w-56"
+/>
 
         <div className="flex items-center gap-2 shrink-0">
           <ExcelExportButton

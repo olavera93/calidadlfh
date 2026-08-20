@@ -7,6 +7,7 @@ import Paginator from '../components/ui/Paginator'
 import ExcelPreviewModal from '../components/ui/ExcelPreviewModal'
 import { ExcelExportButton } from '../components/ui/ExcelActions'
 import { useSearchParams } from 'react-router-dom'
+import ProveedorSearchSelect from '../components/ui/ProveedorSearchSelect'
 
 export default function ContactosView() {
   // Datos
@@ -17,7 +18,15 @@ export default function ContactosView() {
 
   // Referencia para el input de archivo oculto
   const fileInputRef = useRef(null)
-
+  
+const proveedorOptions = React.useMemo(
+  () => proveedores.map((p) => ({
+    id: p.id,
+    label: p.nombre,
+    sublabel: p.identificacion || undefined // si tienes NIT, ayuda mucho a buscar
+  })),
+  [proveedores]
+)
   // Filtros y Búsqueda
   const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState('')
@@ -431,18 +440,14 @@ export default function ContactosView() {
           />
         </div>
 
-        <select
-          value={proveedorFilter}
-          onChange={(e) => handleProveedorFilterChange(e.target.value)}
-          className="input-base w-auto"
-        >
-          <option value="">Todos los Proveedores</option>
-          {proveedores.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.nombre}
-            </option>
-          ))}
-        </select>
+        <ProveedorSearchSelect
+  options={proveedorOptions}
+  value={proveedorFilter}
+  onChange={(id) => handleProveedorFilterChange(id)}
+  placeholder="Todos los Proveedores"
+  clearable
+  className="w-56"
+/>
 
         <div className="flex items-center gap-2 shrink-0">
           <ExcelExportButton

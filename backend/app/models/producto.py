@@ -18,3 +18,5 @@ class Producto(Base):
 
     # Relación inversa con el modelo Proveedor
     proveedor = relationship("Proveedor", back_populates="productos")
+
+    devoluciones = relationship("Devolucion", back_populates="producto")
