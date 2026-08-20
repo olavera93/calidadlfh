@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { Plus, Search, Edit2, Trash2, RotateCcw, Calendar, Package, Building2, X, Download, Eye } from 'lucide-react'
+import { Plus, Search, Edit2, Trash2, RotateCcw, Package, Building2, X, Download, Eye, Hash } from 'lucide-react'
 import api from '../services/api'
 import { EmptyState } from '../components/ui/EmptyState'
 import Paginator from '../components/ui/Paginator'
@@ -14,6 +14,7 @@ export default function DevolucionesView() {
   const navigate = useNavigate()
   
   const [loading, setLoading] = useState(false)
+  const [exportingExcel, setExportingExcel] = useState(false)
   const [error, setError] = useState('')
 
   // Filtros y Búsqueda
@@ -123,7 +124,7 @@ export default function DevolucionesView() {
     return devoluciones.filter((d) => {
       const term = search.toLowerCase()
       const matchesSearch =
-        d.lote?.toLowerCase().includes(term) ||
+        d.numero_de_formato?.toString().toLowerCase().includes(term) ||
         d.causa?.toLowerCase().includes(term) ||
         d.producto?.nombre?.toLowerCase().includes(term) ||
         d.producto?.codigo?.toLowerCase().includes(term) ||
@@ -171,31 +172,51 @@ export default function DevolucionesView() {
 
   const clearSelection = () => setSelectedIds(new Set())
 
-  /* ── Modal & Métodos de Exportación ───────────────────────── */
-  const handleOpenExportModal = () => {
-    const dataToExport = selectedIds.size > 0
-      ? devoluciones.filter((d) => selectedIds.has(d.id))
-      : devolucionesFiltradas
+  /* ── Exportar a Excel ─────────────────────────────────────── */
+  const handleExportExcel = async () => {
+    try {
+      setExportingExcel(true)
+      const ids = selectedIds.size > 0 ? Array.from(selectedIds).join(',') : undefined
 
-    if (dataToExport.length === 0) {
-      alert('No hay devoluciones para exportar')
-      return
+      const response = await api.get('/devoluciones/exportar/excel', {
+        params: {
+          estado: estadoFilter || undefined,
+          ids: ids,
+        },
+        responseType: 'blob',
+      })
+
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `formato_devoluciones_${new Date().toISOString().slice(0, 10)}.xlsx`)
+      document.body.appendChild(link)
+      link.click()
+
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('Error exportando Excel:', err)
+      let msg = 'Error al generar el archivo Excel'
+      if (err.response?.data instanceof Blob) {
+        const text = await err.response.data.text()
+        try {
+          const json = JSON.parse(text)
+          msg = json.detail || msg
+        } catch {
+          // Ignorar fallo de parseo JSON
+        }
+      }
+      alert(msg)
+    } finally {
+      setExportingExcel(false)
     }
-
-    const formattedData = dataToExport.map((d) => ({
-      producto: d.producto ? `${d.producto.codigo} - ${d.producto.nombre}` : 'N/A',
-      proveedor: d.proveedor?.nombre || 'N/A',
-      lote: d.lote || '',
-      cantidad: d.cantidad || 0,
-      causa: d.causa || '',
-      estado: d.estado || 'Pendiente',
-      fecha_creacion: d.fecha_creacion ? new Date(d.fecha_creacion).toLocaleDateString() : ''
-    }))
-
-    setExcelData(formattedData)
-    setShowExcelModal(true)
   }
 
+  /* ── Exportar a PDF (Confirmación Modal) ──────────────────── */
   const handleConfirmExport = async () => {
     try {
       setLoading(true)
@@ -301,12 +322,11 @@ export default function DevolucionesView() {
       })
     } else {
       setEditingDevolucion(null)
-      //  Correcto: obtiene los formatos únicos y calcula el máximo numérico
-const formatosUnicos = Array.from(
-  new Set(devoluciones.map((d) => parseInt(d.numero_de_formato, 10)).filter(Boolean))
-)
-const maxFormato = formatosUnicos.length > 0 ? Math.max(...formatosUnicos) : 0
-const nuevoConsecutivo = String(maxFormato + 1).padStart(3, '0')
+      const formatosUnicos = Array.from(
+        new Set(devoluciones.map((d) => parseInt(d.numero_de_formato, 10)).filter(Boolean))
+      )
+      const maxFormato = formatosUnicos.length > 0 ? Math.max(...formatosUnicos) : 0
+      const nuevoConsecutivo = String(maxFormato + 1).padStart(3, '0')
       setFormData({
         ...initialFormState,
         numero_de_formato: nuevoConsecutivo
@@ -336,7 +356,7 @@ const nuevoConsecutivo = String(maxFormato + 1).padStart(3, '0')
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
             <input
               type="text"
-              placeholder="Buscar por lote, causa, producto o proveedor..."
+              placeholder="Buscar por N.º de formato, causa, producto o proveedor..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="input-base pl-9 w-full"
@@ -358,12 +378,17 @@ const nuevoConsecutivo = String(maxFormato + 1).padStart(3, '0')
 
         <div className="flex items-center gap-2 shrink-0">
           <button
-            onClick={handleOpenExportModal}
-            className="border border-surface-200 hover:bg-surface-100 text-surface-700 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
+            onClick={handleExportExcel}
+            disabled={exportingExcel}
+            className="border border-surface-200 hover:bg-surface-100 text-surface-700 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
             title="Exportar a Excel"
           >
             <Download size={16} />
-            {selectedIds.size > 0 ? `Exportar (${selectedIds.size})` : 'Exportar'}
+            {exportingExcel
+              ? 'Exportando...'
+              : selectedIds.size > 0
+              ? `Exportar (${selectedIds.size})`
+              : 'Exportar'}
           </button>
 
           <button
@@ -413,9 +438,9 @@ const nuevoConsecutivo = String(maxFormato + 1).padStart(3, '0')
                       className="rounded border-surface-300"
                     />
                   </th>
-                  <th className="text-left px-4 py-3">Producto</th>
+                  <th className="text-left px-4 py-3">N.º Formato</th>
                   <th className="text-left px-4 py-3">Proveedor</th>
-                  <th className="text-left px-4 py-3">Lote / Vencimiento</th>
+                  <th className="text-left px-4 py-3">Producto</th>
                   <th className="text-center px-4 py-3">Cantidad</th>
                   <th className="text-left px-4 py-3">Estado</th>
                   <th className="text-right px-5 py-3">Acciones</th>
@@ -434,14 +459,9 @@ const nuevoConsecutivo = String(maxFormato + 1).padStart(3, '0')
                     </td>
                     <td className="px-4 py-3 text-surface-800 font-medium">
                       <div className="flex items-center gap-1.5">
-                        <Package size={14} className="text-surface-400 shrink-0" />
-                        <span>{dev.producto?.nombre || 'Producto no asignado'}</span>
+                        <Hash size={14} className="text-surface-400 shrink-0" />
+                        <span>{dev.numero_de_formato || String(dev.id).padStart(3, '0')}</span>
                       </div>
-                      {dev.producto?.codigo && (
-                        <span className="text-[11px] text-surface-400 font-mono block pl-5">
-                          Cod: {dev.producto.codigo}
-                        </span>
-                      )}
                     </td>
                     <td className="px-4 py-3 text-surface-600 text-xs">
                       <div className="flex items-center gap-1.5">
@@ -449,13 +469,15 @@ const nuevoConsecutivo = String(maxFormato + 1).padStart(3, '0')
                         <span>{dev.proveedor?.nombre || '—'}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-xs space-y-0.5">
-                      <div className="font-mono font-semibold text-surface-700">Lote: {dev.lote}</div>
-                      {dev.fecha_de_vencimiento && (
-                        <div className="flex items-center gap-1 text-surface-400 text-[11px]">
-                          <Calendar size={12} />
-                          <span>Vence: {dev.fecha_de_vencimiento}</span>
-                        </div>
+                    <td className="px-4 py-3 text-xs">
+                      <div className="flex items-center gap-1.5 font-medium text-surface-800">
+                        <Package size={14} className="text-surface-400 shrink-0" />
+                        <span>{dev.producto?.nombre || 'Producto no asignado'}</span>
+                      </div>
+                      {dev.producto?.codigo && (
+                        <span className="text-[11px] text-surface-400 font-mono block pl-5">
+                          Cod: {dev.producto.codigo}
+                        </span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-center font-bold text-surface-700">

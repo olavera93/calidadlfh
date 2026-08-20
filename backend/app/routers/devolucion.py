@@ -12,6 +12,7 @@ from app.schemas.devolucion import (
     DevolucionResponse,
     DevolucionUpdate,
 )
+from app.services.excel_devolucion import generar_excel_devolucion
 from app.services.pdf_devolucion import generar_pdf_devolucion
 
 router = APIRouter(prefix="/devoluciones", tags=["Devoluciones"])
@@ -92,6 +93,39 @@ def exportar_devoluciones_pdf(
         content=pdf_stream.getvalue(),
         media_type="application/pdf",
         headers={"Content-Disposition": "attachment; filename=formato_devolucion.pdf"},
+    )
+
+
+@router.get("/exportar/excel", response_class=Response)
+def exportar_devoluciones_excel(
+    estado: Optional[str] = Query(None),
+    ids: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
+    query = db.query(Devolucion).options(
+        joinedload(Devolucion.producto),
+        joinedload(Devolucion.proveedor),
+    )
+
+    if ids:
+        try_ids = [int(i.strip()) for i in ids.split(",") if i.strip().isdigit()]
+        if try_ids:
+            query = query.filter(Devolucion.id.in_(try_ids))
+
+    if estado:
+        query = query.filter(Devolucion.estado == estado)
+
+    devoluciones = query.order_by(Devolucion.id.desc()).all()
+
+    if not devoluciones:
+        raise HTTPException(status_code=404, detail="No se encontraron devoluciones para exportar")
+
+    excel_stream = generar_excel_devolucion(devoluciones)
+
+    return Response(
+        content=excel_stream.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=formato_devoluciones.xlsx"},
     )
 
 

@@ -20,6 +20,16 @@ LOGO_PATH = os.path.join(
 )
 
 
+def _colores_estado(estado: str):
+    """Devuelve (color_fondo, color_texto) del badge de estado, igual que en el frontend."""
+    estado = (estado or "").strip()
+    if estado in ("Completado", "Aprobado"):
+        return colors.HexColor("#D1FAE5"), colors.HexColor("#065F46")
+    if estado == "Rechazado":
+        return colors.HexColor("#FEE2E2"), colors.HexColor("#991B1B")
+    return colors.HexColor("#FEF3C7"), colors.HexColor("#92400E")
+
+
 def generar_pdf_devolucion(devoluciones: list) -> io.BytesIO:
     buffer = io.BytesIO()
 
@@ -56,6 +66,9 @@ def generar_pdf_devolucion(devoluciones: list) -> io.BytesIO:
     )
     value_style = ParagraphStyle(
         "value_style", fontName="Helvetica-Bold", fontSize=7, leading=8, alignment=TA_LEFT
+    )
+    estado_style = ParagraphStyle(
+        "estado_style", fontName="Helvetica-Bold", fontSize=9, alignment=TA_CENTER
     )
 
     elements = []
@@ -210,6 +223,18 @@ def generar_pdf_devolucion(devoluciones: list) -> io.BytesIO:
         else ""
     )
 
+    estado_actual = (
+        primer_item.estado
+        if primer_item and getattr(primer_item, "estado", None)
+        else "Pendiente"
+    )
+    estado_bg, estado_fg = _colores_estado(estado_actual)
+    estado_style_color = ParagraphStyle(
+        "estado_style_color",
+        parent=estado_style,
+        textColor=estado_fg,
+    )
+
     if primer_item and getattr(primer_item, "numero_de_formato", None):
         num_formato = str(primer_item.numero_de_formato).zfill(3)
     elif primer_item and getattr(primer_item, "id", None):
@@ -223,6 +248,7 @@ def generar_pdf_devolucion(devoluciones: list) -> io.BytesIO:
             "",
             Paragraph("QUIEN ENTREGA", label_style),
             "",
+            Paragraph("ESTADO", label_style),
             Paragraph(f"<b>{num_formato}</b>", big_number),
         ],
         [
@@ -230,6 +256,7 @@ def generar_pdf_devolucion(devoluciones: list) -> io.BytesIO:
             Paragraph(quien_recibe.upper(), value_style),
             Paragraph("NOMBRE:", label_style),
             Paragraph(quien_entrega.upper(), value_style),
+            Paragraph(estado_actual.upper(), estado_style_color),
             "",
         ],
         [
@@ -238,12 +265,13 @@ def generar_pdf_devolucion(devoluciones: list) -> io.BytesIO:
             Paragraph("FECHA:", label_style),
             Paragraph(fecha_registro, value_style),
             "",
+            "",
         ],
     ]
 
     footer_table = Table(
         footer_data,
-        colWidths=[2.2 * cm, 8.6 * cm, 2.2 * cm, 8.6 * cm, 4.74 * cm],
+        colWidths=[2.2 * cm, 7.0 * cm, 2.2 * cm, 7.0 * cm, 3.2 * cm, 4.74 * cm],
         rowHeights=[0.6 * cm, 0.6 * cm, 0.6 * cm],
         hAlign="CENTER",
     )
@@ -252,9 +280,11 @@ def generar_pdf_devolucion(devoluciones: list) -> io.BytesIO:
         TableStyle([
             ("SPAN", (0, 0), (1, 0)),
             ("SPAN", (2, 0), (3, 0)),
-            ("SPAN", (4, 0), (4, 2)),
+            ("SPAN", (4, 1), (4, 2)),
+            ("SPAN", (5, 0), (5, 2)),
             ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("BACKGROUND", (4, 1), (4, 2), estado_bg),
             ("LEFTPADDING", (0, 0), (-1, -1), 4),
             ("RIGHTPADDING", (0, 0), (-1, -1), 4),
             ("TOPPADDING", (0, 0), (-1, -1), 1),

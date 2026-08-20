@@ -48,7 +48,8 @@ export default function DevolucionDetalleView() {
     fecha_recibido: '',
     fecha_entregado: '',
     observaciones: '',
-    numero_de_formato: ''
+    numero_de_formato: '',
+    estado: 'Pendiente'
   })
 
   // Modal Eliminación
@@ -58,6 +59,18 @@ export default function DevolucionDetalleView() {
 
   // Registro principal (el primero del grupo)
   const devolucionPrincipal = itemsDevolucion[0] || null
+
+  const getBadgeEstado = (estado) => {
+    switch (estado) {
+      case 'Completado':
+      case 'Aprobado':
+        return 'bg-emerald-50 text-emerald-700 border-emerald-200'
+      case 'Rechazado':
+        return 'bg-danger-50 text-danger-700 border-danger-200'
+      default:
+        return 'bg-amber-50 text-amber-700 border-amber-200'
+    }
+  }
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -181,7 +194,8 @@ export default function DevolucionDetalleView() {
       fecha_recibido: devolucionPrincipal.fecha_recibido || '',
       fecha_entregado: devolucionPrincipal.fecha_entregado || '',
       observaciones: devolucionPrincipal.observaciones || '',
-      numero_de_formato: devolucionPrincipal.numero_de_formato || ''
+      numero_de_formato: devolucionPrincipal.numero_de_formato || '',
+      estado: devolucionPrincipal.estado || 'Pendiente'
     })
     setShowModalHeaderEdit(true)
   }
@@ -206,7 +220,7 @@ export default function DevolucionDetalleView() {
           quien_recibe: headerFormData.quien_recibe,
           quien_entrega: headerFormData.quien_entrega,
           numero_de_formato: headerFormData.numero_de_formato,
-          estado: item.estado || 'Pendiente'
+          estado: headerFormData.estado || 'Pendiente'
         }
         return api.put(`/devoluciones/${item.id}`, payload)
       })
@@ -489,7 +503,7 @@ export default function DevolucionDetalleView() {
 
         {/* PIE DE PÁGINA */}
         <div className="grid grid-cols-12 border border-slate-900 divide-x divide-slate-900 text-[10px] uppercase font-bold">
-          <div className="col-span-5 divide-y divide-slate-900">
+          <div className="col-span-4 divide-y divide-slate-900">
             <div className="bg-slate-100 p-1 text-center border-b border-slate-900">QUIEN RECIBE (PROVEEDOR)</div>
             <div className="grid grid-cols-12 divide-x divide-slate-900">
               <span className="col-span-3 p-1.5 bg-slate-50">NOMBRE:</span>
@@ -503,7 +517,7 @@ export default function DevolucionDetalleView() {
             </div>
           </div>
 
-          <div className="col-span-5 divide-y divide-slate-900">
+          <div className="col-span-4 divide-y divide-slate-900">
             <div className="bg-slate-100 p-1 text-center border-b border-slate-900">QUIEN ENTREGA</div>
             <div className="grid grid-cols-12 divide-x divide-slate-900">
               <span className="col-span-3 p-1.5 bg-slate-50">NOMBRE:</span>
@@ -513,6 +527,15 @@ export default function DevolucionDetalleView() {
               <span className="col-span-3 p-1.5 bg-slate-50">FECHA:</span>
               <span className="col-span-9 p-1.5 font-mono text-slate-800">
                 {devolucionPrincipal.fecha_entregado || fechaCreacionFmt}
+              </span>
+            </div>
+          </div>
+
+          <div className="col-span-2 flex flex-col divide-y divide-slate-900">
+            <div className="bg-slate-100 p-1 text-center border-b border-slate-900">ESTADO</div>
+            <div className="flex-1 flex items-center justify-center p-2 bg-white">
+              <span className={`inline-flex items-center px-2 py-1 rounded-full text-[10px] font-bold border normal-case ${getBadgeEstado(devolucionPrincipal.estado)}`}>
+                {devolucionPrincipal.estado || 'Pendiente'}
               </span>
             </div>
           </div>
@@ -593,6 +616,21 @@ export default function DevolucionDetalleView() {
                     onChange={(e) => setHeaderFormData({ ...headerFormData, fecha_recibido: e.target.value })}
                     className="w-full mt-1 border border-slate-300 rounded-lg p-2 text-xs"
                   />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-600">Estado *</label>
+                  <select
+                    required
+                    value={headerFormData.estado}
+                    onChange={(e) => setHeaderFormData({ ...headerFormData, estado: e.target.value })}
+                    className="w-full mt-1 border border-slate-300 rounded-lg p-2 text-xs bg-white"
+                  >
+                    <option value="Pendiente">Pendiente</option>
+                    <option value="Aprobado">Aprobado</option>
+                    <option value="Rechazado">Rechazado</option>
+                    <option value="Completado">Completado</option>
+                  </select>
                 </div>
               </div>
 
