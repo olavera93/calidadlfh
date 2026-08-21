@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Users, Building2, Plus, X, Phone, Mail, Briefcase,
-  StickyNote, Edit2, Trash2
+  StickyNote, Edit2, Trash2, Cake
 } from 'lucide-react'
 import api from '../services/api'
 import { EmptyState } from '../components/ui/EmptyState'
@@ -33,7 +33,8 @@ export default function ContactosProveedorView() {
     telefono: '',
     correo: '',
     cargo: '',
-    observaciones: ''
+    observaciones: '',
+    fecha_cumpleanios: ''
   })
   const [formError, setFormError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -99,7 +100,8 @@ export default function ContactosProveedorView() {
       telefono: '',
       correo: '',
       cargo: '',
-      observaciones: ''
+      observaciones: '',
+      fecha_cumpleanios: ''
     })
     setFormError('')
     setShowModal(true)
@@ -113,7 +115,8 @@ export default function ContactosProveedorView() {
       telefono: contacto.telefono || '',
       correo: contacto.correo || '',
       cargo: contacto.cargo || '',
-      observaciones: contacto.observaciones || ''
+      observaciones: contacto.observaciones || '',
+      fecha_cumpleanios: contacto.fecha_cumpleanios || ''
     })
     setFormError('')
     setShowModal(true)
@@ -137,7 +140,8 @@ export default function ContactosProveedorView() {
         correo: formContacto.correo.trim() || null,
         cargo: formContacto.cargo.trim() || null,
         observaciones: formContacto.observaciones.trim() || null,
-        proveedor_id: Number(proveedorId)
+        proveedor_id: Number(proveedorId),
+        fecha_cumpleanios: formContacto.fecha_cumpleanios || null
       }
 
       if (editingContactoId) {
@@ -249,6 +253,7 @@ export default function ContactosProveedorView() {
               >
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-sm font-semibold text-surface-800 truncate">{contacto.nombre}</p>
+
                   <div className="flex items-center gap-1 shrink-0">
                     <button
                       onClick={() => handleOpenEditModal(contacto)}
@@ -278,6 +283,17 @@ export default function ContactosProveedorView() {
                   <span className="inline-flex items-center gap-1.5 text-xs text-surface-600">
                     <Phone size={12} className="text-[#22D3EE] shrink-0" />
                     {contacto.telefono}
+                  </span>
+                )}
+
+                {contacto.fecha_cumpleanios && (
+                  <span className="inline-flex items-center gap-1.5 text-xs text-surface-600">
+                    <Cake size={12} className="text-[#22D3EE] shrink-0" />
+                    {new Date(contacto.fecha_cumpleanios + 'T00:00:00').toLocaleDateString('es-CO', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric'
+                    })}
                   </span>
                 )}
 
@@ -373,6 +389,16 @@ export default function ContactosProveedorView() {
                     placeholder="correo@dominio.com"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-surface-600">Fecha de Cumpleaños</label>
+                <input
+                  type="date"
+                  value={formContacto.fecha_cumpleanios}
+                  onChange={(e) => setFormContacto((prev) => ({ ...prev, fecha_cumpleanios: e.target.value }))}
+                  className="mt-1 w-full border border-surface-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                />
               </div>
 
               <div>

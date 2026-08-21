@@ -19,23 +19,22 @@ export default function ContactosView() {
   // Referencia para el input de archivo oculto
   const fileInputRef = useRef(null)
   
-const proveedorOptions = React.useMemo(
-  () => proveedores.map((p) => ({
-    id: p.id,
-    label: p.nombre,
-    sublabel: p.identificacion || undefined // si tienes NIT, ayuda mucho a buscar
-  })),
-  [proveedores]
-)
+  const proveedorOptions = React.useMemo(
+    () => proveedores.map((p) => ({
+      id: p.id,
+      label: p.nombre,
+      sublabel: p.identificacion || undefined
+    })),
+    [proveedores]
+  )
+
   // Filtros y Búsqueda
   const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  // Se inicializa con lo que venga en la URL (ej. ?proveedor_id=5 al llegar
-  // desde el botón "Ver contactos" en el detalle de un Proveedor)
   const [proveedorFilter, setProveedorFilter] = useState(searchParams.get('proveedor_id') || '')
 
-  // Selección (Map<id, contacto> para que sobreviva el cambio de página) y Paginación
+  // Selección y Paginación
   const [selectedItems, setSelectedItems] = useState(new Map())
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(10)
@@ -44,7 +43,6 @@ const proveedorOptions = React.useMemo(
   // Modal Contacto State
   const [showModalContacto, setShowModalContacto] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
-  // true = solo lectura (se abre con "Ver"); false = formulario editable
   const [viewMode, setViewMode] = useState(false)
 
   /* ── Estados para Modal de Eliminación de Contacto ──────── */
@@ -54,15 +52,13 @@ const proveedorOptions = React.useMemo(
 
   // Modal Excel State
   const [showExcelModal, setShowExcelModal] = useState(false)
-  const [excelModalMode, setExcelModalMode] = useState('export') // 'import' | 'export'
+  const [excelModalMode, setExcelModalMode] = useState('export')
   const [excelData, setExcelData] = useState([])
-  // Lista completa de contactos existentes (todos, no solo la página actual) para que el
-  // modal de importación pueda detectar correctamente duplicados por nombre + proveedor
   const [allContactosForImport, setAllContactosForImport] = useState([])
 
-  // Columnas para la previsualización del mini-excel y generación de plantillas
   const excelColumns = [
     { key: 'nombre', label: 'Nombre' },
+    { key: 'fecha_cumpleanios', label: 'Fecha de Cumpleaños' },
     { key: 'cargo', label: 'Cargo' },
     { key: 'telefono', label: 'Teléfono' },
     { key: 'correo', label: 'Correo' },
@@ -74,6 +70,7 @@ const proveedorOptions = React.useMemo(
   // Formulario State
   const [formContacto, setFormContacto] = useState({
     nombre: '',
+    fecha_cumpleanios: '',
     cargo: '',
     telefono: '',
     correo: '',
@@ -81,27 +78,22 @@ const proveedorOptions = React.useMemo(
     proveedor_id: ''
   })
 
-  /* ── Cargar Proveedores (una sola vez, lista corta para el <select>) ── */
   useEffect(() => {
     api.get('/proveedores')
       .then((res) => setProveedores(res.data))
       .catch((err) => setError(err.response?.data?.detail || 'Error al cargar proveedores'))
   }, [])
 
-  /* ── Debounce de la búsqueda: espera 350ms tras dejar de teclear ──── */
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 350)
     return () => clearTimeout(timer)
   }, [search])
 
-  /* ── Sincroniza el filtro con la URL (ej. al llegar desde el botón
-     "Ver contactos de este proveedor" en el detalle de un Proveedor) ── */
   useEffect(() => {
     const proveedorIdUrl = searchParams.get('proveedor_id') || ''
     setProveedorFilter(proveedorIdUrl)
   }, [searchParams])
 
-  /* ── Cambiar el filtro desde el <select> también actualiza la URL ─── */
   const handleProveedorFilterChange = (value) => {
     setProveedorFilter(value)
     setSearchParams((prev) => {
@@ -115,12 +107,10 @@ const proveedorOptions = React.useMemo(
     })
   }
 
-  /* ── Volver a página 1 cuando cambian filtros/búsqueda/tamaño ─────── */
   useEffect(() => {
     setCurrentPage(1)
   }, [debouncedSearch, proveedorFilter, itemsPerPage])
 
-  /* ── Cargar Contactos de la API (server-side pagination + search) ─── */
   const fetchData = useCallback(async () => {
     setLoading(true)
     setError('')
@@ -134,25 +124,20 @@ const proveedorOptions = React.useMemo(
         }
       })
 
-      // 1. Si el backend devuelve la estructura paginada { items, total }
       if (res.data && Array.isArray(res.data.items)) {
         setContactos(res.data.items)
         setTotalItems(res.data.total ?? res.data.items.length)
-      }
-      // 2. Si por alguna razón el backend devuelve el array directo [...]
-      else if (Array.isArray(res.data)) {
+      } else if (Array.isArray(res.data)) {
         setContactos(res.data)
         setTotalItems(res.data.length)
-      }
-      // 3. Fallback en caso de un formato inesperado
-      else {
+      } else {
         setContactos([])
         setTotalItems(0)
       }
 
     } catch (err) {
       setError(err.response?.data?.detail || 'Error al cargar la información')
-      setContactos([]) // Limpiamos para evitar inconsistencias
+      setContactos([])
     } finally {
       setLoading(false)
     }
@@ -162,7 +147,6 @@ const proveedorOptions = React.useMemo(
     fetchData()
   }, [fetchData])
 
-  /* ── Selección (persiste entre páginas gracias al Map) ───────────── */
   const toggleSelectOne = (contacto) => {
     setSelectedItems((prev) => {
       const next = new Map(prev)
@@ -189,15 +173,12 @@ const proveedorOptions = React.useMemo(
 
   const clearSelection = () => setSelectedItems(new Map())
 
-  /* ── Exportar: Abrir Modal Previo ──────────────────────────── */
   const handleOpenExportModal = async () => {
     let contactosAExportar = []
 
     if (selectedItems.size > 0) {
       contactosAExportar = Array.from(selectedItems.values())
     } else {
-      // Sin selección: traer TODOS los contactos que coinciden con el filtro/búsqueda actual,
-      // no solo los de la página visible.
       setLoading(true)
       try {
         const res = await api.get('/contactos', {
@@ -224,6 +205,7 @@ const proveedorOptions = React.useMemo(
 
     const formattedData = contactosAExportar.map((c) => ({
       nombre: c.nombre || '',
+      fecha_cumpleanios: c.fecha_cumpleanios || '',
       cargo: c.cargo || '',
       telefono: c.telefono || '',
       correo: c.correo || '',
@@ -237,10 +219,10 @@ const proveedorOptions = React.useMemo(
     setShowExcelModal(true)
   }
 
-  /* ── Confirmar Exportación a Archivo Excel ────────────────── */
   const handleConfirmExport = () => {
     const dataToExport = excelData.map((c) => ({
       'Nombre': c.nombre,
+      'Fecha de Cumpleaños': c.fecha_cumpleanios,
       'Cargo': c.cargo,
       'Teléfono': c.telefono,
       'Correo': c.correo,
@@ -257,7 +239,6 @@ const proveedorOptions = React.useMemo(
     setShowExcelModal(false)
   }
 
-  /* ── Importar: Lectura del Archivo y Abrir Modal Previo ───── */
   const handleFileChange = (e) => {
     const file = e.target.files[0]
     if (!file) return
@@ -279,6 +260,7 @@ const proveedorOptions = React.useMemo(
         const contactosAImportar = data
           .map((item) => ({
             nombre: String(item['Nombre'] || item['nombre'] || '').trim(),
+            fecha_cumpleanios: String(item['Fecha de Cumpleaños'] || item['fecha_cumpleanios'] || '').trim() || null,
             cargo: String(item['Cargo'] || item['cargo'] || '').trim() || null,
             telefono: String(item['Teléfono'] || item['telefono'] || item['Telefono'] || '').trim() || null,
             correo: String(item['Correo'] || item['correo'] || item['Email'] || '').trim() || null,
@@ -296,8 +278,6 @@ const proveedorOptions = React.useMemo(
           return
         }
 
-        // Traer TODOS los contactos existentes (no solo la página visible) para que el
-        // modal pueda comparar por nombre + proveedor y marcar correctamente nuevos vs. actualizaciones
         try {
           const res = await api.get('/contactos', { params: { skip: 0, limit: 100000 } })
           setAllContactosForImport(res.data.items)
@@ -317,7 +297,6 @@ const proveedorOptions = React.useMemo(
     reader.readAsBinaryString(file)
   }
 
-  /* ── Confirmar Importación a Backend ───────────────────────── */
   const handleConfirmImport = async (dataToSubmit) => {
     setLoading(true)
     try {
@@ -337,9 +316,12 @@ const proveedorOptions = React.useMemo(
     }
   }
 
-  /* ── Handlers de Guardado ────────────────────────────────── */
   const handleSaveContacto = async (e) => {
     e.preventDefault()
+    if (!formContacto.proveedor_id) {
+      alert('Por favor selecciona un proveedor')
+      return
+    }
     try {
       if (editingItem) {
         await api.put(`/contactos/${editingItem.id}`, formContacto)
@@ -353,7 +335,6 @@ const proveedorOptions = React.useMemo(
     }
   }
 
-  /* ── Handlers de Eliminación ──────────────────────────────── */
   const handleOpenDeleteModal = (contacto) => {
     setContactoToDelete(contacto)
     setShowModalDelete(true)
@@ -375,7 +356,6 @@ const proveedorOptions = React.useMemo(
     }
   }
 
-  /* ── Modal Opener ─────────────────────────────────────────── */
   const openContactoModal = (contacto = null) => {
     if (contacto) {
       setEditingItem(contacto)
@@ -385,6 +365,7 @@ const proveedorOptions = React.useMemo(
         telefono: contacto.telefono || '',
         correo: contacto.correo || '',
         observaciones: contacto.observaciones || '',
+        fecha_cumpleanios: contacto.fecha_cumpleanios || '',
         proveedor_id: contacto.proveedor_id || ''
       })
     } else {
@@ -395,14 +376,14 @@ const proveedorOptions = React.useMemo(
         telefono: '',
         correo: '',
         observaciones: '',
-        proveedor_id: proveedorFilter || proveedores[0]?.id || ''
+        fecha_cumpleanios: '',
+        proveedor_id: proveedorFilter || (proveedores[0]?.id ? String(proveedores[0].id) : '')
       })
     }
     setViewMode(false)
     setShowModalContacto(true)
   }
 
-  /* ── Abre el modal en modo solo-lectura (botón "Ver" de la tabla) ─── */
   const openViewModal = (contacto) => {
     setEditingItem(contacto)
     setFormContacto({
@@ -411,6 +392,7 @@ const proveedorOptions = React.useMemo(
       telefono: contacto.telefono || '',
       correo: contacto.correo || '',
       observaciones: contacto.observaciones || '',
+      fecha_cumpleanios: contacto.fecha_cumpleanios || '',
       proveedor_id: contacto.proveedor_id || ''
     })
     setViewMode(true)
@@ -441,13 +423,13 @@ const proveedorOptions = React.useMemo(
         </div>
 
         <ProveedorSearchSelect
-  options={proveedorOptions}
-  value={proveedorFilter}
-  onChange={(id) => handleProveedorFilterChange(id)}
-  placeholder="Todos los Proveedores"
-  clearable
-  className="w-56"
-/>
+          options={proveedorOptions}
+          value={proveedorFilter}
+          onChange={(id) => handleProveedorFilterChange(id)}
+          placeholder="Todos los Proveedores"
+          clearable
+          className="w-56"
+        />
 
         <div className="flex items-center gap-2 shrink-0">
           <ExcelExportButton
@@ -582,7 +564,7 @@ const proveedorOptions = React.useMemo(
         />
       </div>
 
-      {/* MODAL PREVISUALIZACIÓN EXCEL (IMPORTAR / EXPORTAR) */}
+      {/* MODAL PREVISUALIZACIÓN EXCEL */}
       <ExcelPreviewModal
         isOpen={showExcelModal}
         onClose={() => setShowExcelModal(false)}
@@ -597,11 +579,11 @@ const proveedorOptions = React.useMemo(
         loading={loading}
       />
 
-      {/* MODAL CONTACTO (ver / crear / editar) */}
+      {/* MODAL CONTACTO (Horizontal layout para evitar scrollbar) */}
       {showModalContacto && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-modal border border-surface-100">
-            <div className="flex justify-between items-center mb-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-modal border border-surface-100">
+            <div className="flex justify-between items-center mb-5 pb-3 border-b border-surface-100">
               <h3 className="text-base font-semibold text-surface-800">
                 {viewMode ? 'Detalle del Contacto' : editingItem ? 'Editar Contacto' : 'Nuevo Contacto'}
               </h3>
@@ -614,34 +596,40 @@ const proveedorOptions = React.useMemo(
             </div>
 
             {viewMode ? (
-              /* ── MODO SOLO LECTURA ─────────────────────────── */
-              <div className="space-y-3">
-                <div>
-                  <span className="text-xs font-semibold text-surface-500 uppercase tracking-wide">Nombre</span>
-                  <p className="text-sm text-surface-800 mt-0.5">{formContacto.nombre || '—'}</p>
-                </div>
-                <div>
-                  <span className="text-xs font-semibold text-surface-500 uppercase tracking-wide">Cargo</span>
-                  <p className="text-sm text-surface-800 mt-0.5">{formContacto.cargo || '—'}</p>
-                </div>
-                <div>
-                  <span className="text-xs font-semibold text-surface-500 uppercase tracking-wide">Teléfono</span>
-                  <p className="text-sm text-surface-800 mt-0.5">{formContacto.telefono || '—'}</p>
-                </div>
-                <div>
-                  <span className="text-xs font-semibold text-surface-500 uppercase tracking-wide">Correo</span>
-                  <p className="text-sm text-surface-800 mt-0.5">{formContacto.correo || '—'}</p>
-                </div>
-                <div>
-                  <span className="text-xs font-semibold text-surface-500 uppercase tracking-wide">Observaciones</span>
-                  <p className="text-sm text-surface-800 mt-0.5 whitespace-pre-wrap">{formContacto.observaciones || '—'}</p>
-                </div>
-                <div>
-                  <span className="text-xs font-semibold text-surface-500 uppercase tracking-wide">Proveedor</span>
-                  <p className="text-sm text-surface-800 mt-0.5">{editingItem?.proveedor?.nombre || '—'}</p>
+              /* ── MODO SOLO LECTURA (Grid 2 columnas) ─────────────────── */
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                  <div>
+                    <span className="text-xs font-semibold text-surface-500 uppercase tracking-wide">Nombre</span>
+                    <p className="text-sm text-surface-800 mt-0.5">{formContacto.nombre || '—'}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs font-semibold text-surface-500 uppercase tracking-wide">Fecha de Cumpleaños</span>
+                    <p className="text-sm text-surface-800 mt-0.5">{formContacto.fecha_cumpleanios || '—'}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs font-semibold text-surface-500 uppercase tracking-wide">Cargo</span>
+                    <p className="text-sm text-surface-800 mt-0.5">{formContacto.cargo || '—'}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs font-semibold text-surface-500 uppercase tracking-wide">Teléfono</span>
+                    <p className="text-sm text-surface-800 mt-0.5">{formContacto.telefono || '—'}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs font-semibold text-surface-500 uppercase tracking-wide">Correo</span>
+                    <p className="text-sm text-surface-800 mt-0.5">{formContacto.correo || '—'}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs font-semibold text-surface-500 uppercase tracking-wide">Proveedor</span>
+                    <p className="text-sm text-surface-800 mt-0.5">{editingItem?.proveedor?.nombre || '—'}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-xs font-semibold text-surface-500 uppercase tracking-wide">Observaciones</span>
+                    <p className="text-sm text-surface-800 mt-0.5 whitespace-pre-wrap">{formContacto.observaciones || '—'}</p>
+                  </div>
                 </div>
 
-                <div className="flex justify-end gap-2 pt-3">
+                <div className="flex justify-end gap-2 pt-4 border-t border-surface-100">
                   <button
                     type="button"
                     onClick={() => setShowModalContacto(false)}
@@ -659,71 +647,85 @@ const proveedorOptions = React.useMemo(
                 </div>
               </div>
             ) : (
-              /* ── MODO FORMULARIO (crear / editar) ─────────────── */
-              <form onSubmit={handleSaveContacto} className="space-y-3">
-                <div>
-                  <label className="text-xs font-semibold text-surface-600">Nombre</label>
-                  <input
-                    type="text"
-                    required
-                    value={formContacto.nombre}
-                    onChange={(e) => setFormContacto({ ...formContacto, nombre: e.target.value })}
-                    className="input-base w-full mt-1"
-                  />
+              /* ── MODO FORMULARIO (Grid 2 columnas) ─────────────── */
+              <form onSubmit={handleSaveContacto} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-semibold text-surface-600">Nombre</label>
+                    <input
+                      type="text"
+                      required
+                      value={formContacto.nombre}
+                      onChange={(e) => setFormContacto({ ...formContacto, nombre: e.target.value })}
+                      className="input-base w-full mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-surface-600">Fecha de Cumpleaños</label>
+                    <input
+                      type="date"
+                      value={formContacto.fecha_cumpleanios}
+                      onChange={(e) => setFormContacto({ ...formContacto, fecha_cumpleanios: e.target.value })}
+                      className="input-base w-full mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-surface-600">Cargo</label>
+                    <input
+                      type="text"
+                      value={formContacto.cargo}
+                      onChange={(e) => setFormContacto({ ...formContacto, cargo: e.target.value })}
+                      className="input-base w-full mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-surface-600">Teléfono</label>
+                    <input
+                      type="text"
+                      value={formContacto.telefono}
+                      onChange={(e) => setFormContacto({ ...formContacto, telefono: e.target.value })}
+                      className="input-base w-full mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-surface-600">Correo</label>
+                    <input
+                      type="email"
+                      value={formContacto.correo}
+                      onChange={(e) => setFormContacto({ ...formContacto, correo: e.target.value })}
+                      className="input-base w-full mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-surface-600">Proveedor</label>
+                    <div className="mt-1">
+                      <ProveedorSearchSelect
+                        options={proveedorOptions}
+                        value={formContacto.proveedor_id}
+                        onChange={(id) => setFormContacto({ ...formContacto, proveedor_id: id })}
+                        placeholder="Selecciona un proveedor"
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="col-span-2">
+                    <label className="text-xs font-semibold text-surface-600">Observaciones</label>
+                    <textarea
+                      rows={2}
+                      value={formContacto.observaciones}
+                      onChange={(e) => setFormContacto({ ...formContacto, observaciones: e.target.value })}
+                      className="input-base w-full mt-1 resize-none"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="text-xs font-semibold text-surface-600">Cargo</label>
-                  <input
-                    type="text"
-                    value={formContacto.cargo}
-                    onChange={(e) => setFormContacto({ ...formContacto, cargo: e.target.value })}
-                    className="input-base w-full mt-1"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-surface-600">Teléfono</label>
-                  <input
-                    type="text"
-                    value={formContacto.telefono}
-                    onChange={(e) => setFormContacto({ ...formContacto, telefono: e.target.value })}
-                    className="input-base w-full mt-1"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-surface-600">Correo</label>
-                  <input
-                    type="email"
-                    value={formContacto.correo}
-                    onChange={(e) => setFormContacto({ ...formContacto, correo: e.target.value })}
-                    className="input-base w-full mt-1"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-surface-600">Observaciones</label>
-                  <textarea
-                    rows={2}
-                    value={formContacto.observaciones}
-                    onChange={(e) => setFormContacto({ ...formContacto, observaciones: e.target.value })}
-                    className="input-base w-full mt-1 resize-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-surface-600">Proveedor</label>
-                  <select
-                    required
-                    value={formContacto.proveedor_id}
-                    onChange={(e) => setFormContacto({ ...formContacto, proveedor_id: e.target.value })}
-                    className="input-base w-full mt-1"
-                  >
-                    <option value="">Selecciona un proveedor</option>
-                    {proveedores.map((prov) => (
-                      <option key={prov.id} value={prov.id}>
-                        {prov.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex justify-end gap-2 pt-3">
+
+                <div className="flex justify-end gap-2 pt-3 border-t border-surface-100">
                   <button
                     type="button"
                     onClick={() =>

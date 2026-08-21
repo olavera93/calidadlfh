@@ -30,9 +30,9 @@ def normalizar_texto(valor: str) -> str:
     return re.sub(r"\s+", " ", valor).strip().upper()
 
 
-# ────────────────────────────────────────────────────────────────
+
 # LISTADO CON BÚSQUEDA + FILTRO POR PROVEEDOR + PAGINACIÓN
-# ────────────────────────────────────────────────────────────────
+
 @router.get("/")
 def get_contactos(
     skip: int = 0,
@@ -54,6 +54,7 @@ def get_contactos(
                 Contacto.correo.ilike(like),
                 Contacto.telefono.ilike(like),
                 Contacto.cargo.ilike(like),
+                Contacto.fecha_cumpleanios.ilike(like)
             )
         )
 
@@ -188,6 +189,7 @@ def importar_contactos(contactos: List[dict], db: Session = Depends(get_db)):
             "cargo": str(item.get("cargo") or "").strip() or None,
             "observaciones": str(item.get("observaciones") or "").strip() or None,
             "proveedor_id": proveedor.id,
+            "fecha_cumpleanios": str(item.get("fecha_cumpleanios") or "").strip() or None
         }
 
         clave = (proveedor.id, normalizar_texto(nombre))
