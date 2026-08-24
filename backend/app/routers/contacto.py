@@ -1,3 +1,5 @@
+from app.core.dependencies import require_roles 
+from app.models.models import Usuario
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_
@@ -79,6 +81,7 @@ def get_contacto(contacto_id: int, db: Session = Depends(get_db)):
 
 @router.post("/", response_model=ContactoResponse, status_code=status.HTTP_201_CREATED)
 def create_contacto(contacto: ContactoCreate, db: Session = Depends(get_db)):
+    _: Usuario = Depends(require_roles("admin", "visitador")),
     proveedor_exists = db.query(Proveedor).filter(Proveedor.id == contacto.proveedor_id).first()
     if not proveedor_exists:
         raise HTTPException(
@@ -95,6 +98,7 @@ def create_contacto(contacto: ContactoCreate, db: Session = Depends(get_db)):
 
 @router.put("/{contacto_id}", response_model=ContactoResponse)
 def update_contacto(contacto_id: int, contacto_data: ContactoUpdate, db: Session = Depends(get_db)):
+    _: Usuario = Depends(require_roles("admin", "visitador")),
     db_contacto = db.query(Contacto).filter(Contacto.id == contacto_id).first()
     if not db_contacto:
         raise HTTPException(status_code=404, detail="Contacto no encontrado")
@@ -116,6 +120,7 @@ def update_contacto(contacto_id: int, contacto_data: ContactoUpdate, db: Session
 
 @router.delete("/{contacto_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_contacto(contacto_id: int, db: Session = Depends(get_db)):
+    _: Usuario = Depends(require_roles("admin", "visitador")),
     db_contacto = db.query(Contacto).filter(Contacto.id == contacto_id).first()
     if not db_contacto:
         raise HTTPException(status_code=404, detail="Contacto no encontrado")
@@ -130,6 +135,7 @@ def delete_contacto(contacto_id: int, db: Session = Depends(get_db)):
 # ────────────────────────────────────────────────────────────────
 @router.post("/importar-json")
 def importar_contactos(contactos: List[dict], db: Session = Depends(get_db)):
+    _: Usuario = Depends(require_roles("admin", "visitador")),
     """
     Cada item esperado con las llaves:
     nombre, telefono, correo, cargo, observaciones,

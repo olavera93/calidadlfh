@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { cn } from '../../lib/utils'
+import PuedeEditar from '../PuedeEditar'
 
 function Tooltip({ label, show }) {
   if (!show) return null
@@ -144,7 +145,9 @@ export default function Sidebar() {
         <NavItem to="/odoo/vencimientos" icon={CalendarX2}    label="Vencimientos"   collapsed={collapsed} />
 
         <SectionLabel label="Sistema" collapsed={collapsed} />
-        <NavItem to="/configuracion" icon={Settings} label="Configuración" collapsed={collapsed} />
+        <PuedeEditar>
+          <NavItem to="/configuracion" icon={Settings} label="Configuración" collapsed={collapsed} />
+        </PuedeEditar>
       </nav>
 
       {/* ── Footer: usuario + logout ── */}

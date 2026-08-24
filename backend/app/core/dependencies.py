@@ -47,6 +47,21 @@ def require_admin(current_user: Usuario = Depends(get_current_user)) -> Usuario:
     return current_user
 
 
+def require_roles(*roles: str):
+    """Factory de dependencia: permite el acceso solo a los roles indicados.
+
+    Uso: Depends(require_roles("admin", "visitador"))
+    """
+    def _dependency(current_user: Usuario = Depends(get_current_user)) -> Usuario:
+        if current_user.rol not in roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tienes permisos para realizar esta acción",
+            )
+        return current_user
+    return _dependency
+
+
 def get_sedes_permitidas(
     current_user: Usuario = Depends(get_current_user),
     db: Session = Depends(get_db),

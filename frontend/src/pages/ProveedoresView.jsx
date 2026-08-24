@@ -7,6 +7,8 @@ import { EmptyState } from '../components/ui/EmptyState'
 import Paginator from '../components/ui/Paginator'
 import ExcelPreviewModal from '../components/ui/ExcelPreviewModal'
 import { ExcelExportButton } from '../components/ui/ExcelActions'
+import { useAuth } from '../context/AuthContext'
+import PuedeEditar from '../components/PuedeEditar'
 
 export default function ProveedoresView() {
   const navigate = useNavigate()
@@ -328,6 +330,7 @@ export default function ProveedoresView() {
             isTemplate={true}
           />
 
+<PuedeEditar>
           <button
             onClick={() => fileInputRef.current?.click()}
             className="border border-surface-200 hover:bg-surface-100 text-surface-700 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
@@ -336,6 +339,7 @@ export default function ProveedoresView() {
           >
             <Upload size={16} /> Importar
           </button>
+          </PuedeEditar>
 
           <button
             onClick={handleOpenExportModal}
@@ -346,12 +350,14 @@ export default function ProveedoresView() {
             {selectedIds.size > 0 ? `Exportar (${selectedIds.size})` : 'Exportar'}
           </button>
 
-          <button
-            onClick={() => openModal()}
-            className="bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
-          >
-            <Plus size={16} /> Nuevo Proveedor
-          </button>
+          <PuedeEditar>
+            <button
+              onClick={() => openModal()}
+              className="bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
+            >
+              <Plus size={16} /> Nuevo Proveedor
+            </button>
+          </PuedeEditar>
         </div>
       </div>
 
@@ -449,13 +455,18 @@ export default function ProveedoresView() {
                       )}
                     </td>
                     <td className="px-5 py-3 text-right whitespace-nowrap">
-                      <button
-                        onClick={() => openModal(prov)}
-                        className="p-1.5 text-surface-400 hover:text-brand-500 hover:bg-brand-50/50 rounded-lg transition-colors mr-1"
-                        title="Editar"
-                      >
-                        <Edit2 size={15} />
+                      
+                      <PuedeEditar>
+                        <button
+                          onClick={() => openModal(prov)}
+                          className="p-1.5 text-surface-400 hover:text-brand-500 hover:bg-brand-50/50 rounded-lg transition-colors mr-1"
+                          title="Editar"
+                        >
+                          <Edit2 size={15} />
                       </button>
+                      </PuedeEditar>
+
+                    <PuedeEditar>
                       <button
                         onClick={() => handleOpenDeleteModal(prov)}
                         className="p-1.5 text-surface-400 hover:text-danger-500 hover:bg-danger-50/50 rounded-lg transition-colors"
@@ -463,6 +474,7 @@ export default function ProveedoresView() {
                       >
                         <Trash2 size={15} />
                       </button>
+                      </PuedeEditar>
                     </td>
                   </tr>
                 ))}

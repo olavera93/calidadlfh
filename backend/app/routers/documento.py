@@ -6,6 +6,8 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
+from app.core.dependencies import require_roles 
+from app.models.models import Usuario
 
 from app.database import get_db
 from app.models.documento import Documento
@@ -127,6 +129,7 @@ async def create_documento(
     archivo: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
+    _: Usuario = Depends(require_roles("admin", "visitador")),
     if archivo.content_type not in ALLOWED_MIME:
         raise HTTPException(status_code=400, detail="Tipo de archivo no permitido")
 
@@ -171,6 +174,7 @@ async def update_documento(
     archivo: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db),
 ):
+    _: Usuario = Depends(require_roles("admin", "visitador")),
     doc = db.query(Documento).filter(Documento.id == documento_id).first()
     if not doc:
         raise HTTPException(
@@ -218,8 +222,10 @@ async def update_documento(
 
 @router.delete("/{documento_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_documento(documento_id: int, db: Session = Depends(get_db)):
+    _: Usuario = Depends(require_roles("admin", "visitador")),
     doc = db.query(Documento).filter(Documento.id == documento_id).first()
     if not doc:
+        
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Documento no encontrado"
@@ -235,6 +241,7 @@ def delete_documento(documento_id: int, db: Session = Depends(get_db)):
 
 @router.post("/importar-json")
 def importar_documentos_json(documentos_data: List[dict], db: Session = Depends(get_db)):
+    _: Usuario = Depends(require_roles("admin", "visitador")),
     creados = 0
     actualizados = 0
 

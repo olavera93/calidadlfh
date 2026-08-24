@@ -2,6 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session,joinedload
 from typing import List
 
+from app.core.dependencies import require_roles
+from app.models.models import Usuario
+
 from app.database import get_db
 from app.models.proveedor import Proveedor
 from app.schemas.proveedor import ProveedorCreate, ProveedorUpdate, ProveedorResponse
@@ -30,6 +33,7 @@ def get_proveedor(proveedor_id: int, db: Session = Depends(get_db)):
 
 @router.post("/", response_model=ProveedorResponse, status_code=status.HTTP_201_CREATED)
 def create_proveedor(proveedor: ProveedorCreate, db: Session = Depends(get_db)):
+    _: Usuario = Depends(require_roles("admin", "visitador")),
     db_exists = db.query(Proveedor).filter(Proveedor.identificacion == proveedor.identificacion).first()
     if db_exists:
         raise HTTPException(status_code=400, detail="Ya existe un proveedor con esta identificación")
@@ -42,6 +46,7 @@ def create_proveedor(proveedor: ProveedorCreate, db: Session = Depends(get_db)):
 
 @router.post("/importar-json", status_code=status.HTTP_200_OK)
 def importar_proveedores_json(proveedores: List[ProveedorCreate], db: Session = Depends(get_db)):
+    _: Usuario = Depends(require_roles("admin", "visitador")),
     if not proveedores:
         raise HTTPException(status_code=400, detail="La lista de proveedores está vacía")
 
@@ -94,6 +99,7 @@ def importar_proveedores_json(proveedores: List[ProveedorCreate], db: Session = 
 
 @router.put("/{proveedor_id}", response_model=ProveedorResponse)
 def update_proveedor(proveedor_id: int, proveedor_data: ProveedorUpdate, db: Session = Depends(get_db)):
+    _: Usuario = Depends(require_roles("admin", "visitador")),
     db_proveedor = db.query(Proveedor).filter(Proveedor.id == proveedor_id).first()
     if not db_proveedor:
         raise HTTPException(status_code=404, detail="Proveedor no encontrado")
@@ -108,6 +114,7 @@ def update_proveedor(proveedor_id: int, proveedor_data: ProveedorUpdate, db: Ses
 
 @router.delete("/{proveedor_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_proveedor(proveedor_id: int, db: Session = Depends(get_db)):
+    _: Usuario = Depends(require_roles("admin", "visitador")),
     db_proveedor = db.query(Proveedor).filter(Proveedor.id == proveedor_id).first()
     if not db_proveedor:
         raise HTTPException(status_code=404, detail="Proveedor no encontrado")

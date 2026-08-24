@@ -8,6 +8,8 @@ import ExcelPreviewModal from '../components/ui/ExcelPreviewModal'
 import { ExcelExportButton } from '../components/ui/ExcelActions'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import ProveedorSearchSelect from '../components/ui/ProveedorSearchSelect'
+import { useAuth } from '../context/AuthContext'
+import PuedeEditar from '../components/PuedeEditar'
 
 export default function ProductosView() {
   // Datos
@@ -398,7 +400,27 @@ export default function ProductosView() {
     }
     setShowModalProducto(true)
   }
+// ── Estado para Modal de Eliminación Masiva ─────────────────
+const [showModalBulkDelete, setShowModalBulkDelete] = useState(false)
+const [deletingBulk, setDeletingBulk] = useState(false)
 
+// ── Handler para Eliminación Masiva ────────────────────────
+const handleConfirmBulkDelete = async () => {
+  const idsToDelete = Array.from(selectedItems.keys())
+  if (idsToDelete.length === 0) return
+
+  setDeletingBulk(true)
+  try {
+    await api.post('/productos/eliminar-masivo', { ids: idsToDelete })
+    clearSelection()
+    setShowModalBulkDelete(false)
+    fetchData()
+  } catch (err) {
+    alert(err.response?.data?.detail || 'Error al eliminar los productos seleccionados')
+  } finally {
+    setDeletingBulk(false)
+  }
+}
   return (
     <div className="space-y-4">
       <input
@@ -431,6 +453,8 @@ export default function ProductosView() {
           className="w-56"
         />
 
+        
+
         <div className="flex items-center gap-2 shrink-0">
           <ExcelExportButton
             columns={excelColumns}
@@ -440,6 +464,7 @@ export default function ProductosView() {
             isTemplate={true}
           />
 
+<PuedeEditar>
           <button
             onClick={() => fileInputRef.current?.click()}
             className="border border-surface-200 hover:bg-surface-100 text-surface-700 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
@@ -448,6 +473,7 @@ export default function ProductosView() {
           >
             <Upload size={16} /> Importar
           </button>
+</PuedeEditar>
 
           <button
             onClick={handleOpenExportModal}
@@ -458,12 +484,14 @@ export default function ProductosView() {
             {selectedItems.size > 0 ? `Exportar (${selectedItems.size})` : 'Exportar'}
           </button>
 
-          <button
-            onClick={() => openProductoModal()}
-            className="bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
-          >
-            <Plus size={16} /> Nuevo Producto
-          </button>
+          <PuedeEditar>
+            <button
+              onClick={() => openProductoModal()}
+              className="bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
+            >
+              <Plus size={16} /> Nuevo Producto
+            </button>
+          </PuedeEditar>
         </div>
       </div>
 
@@ -557,6 +585,8 @@ export default function ProductosView() {
                     </td>
                     <td className="px-4 py-2.5 text-surface-600">{p.proveedor?.nombre || '—'}</td>
                     <td className="px-5 py-2.5 text-right whitespace-nowrap">
+
+                      <PuedeEditar>
                       <button
                         onClick={() => openProductoModal(p)}
                         className="p-1 hover:text-brand-500 transition-colors mr-2"
@@ -564,6 +594,9 @@ export default function ProductosView() {
                       >
                         <Edit2 size={15} />
                       </button>
+                      </PuedeEditar>
+
+                      <PuedeEditar>
                       <button
                         onClick={() => handleOpenDeleteModal(p)}
                         className="p-1 hover:text-danger-500 transition-colors"
@@ -571,6 +604,7 @@ export default function ProductosView() {
                       >
                         <Trash2 size={15} />
                       </button>
+                      </PuedeEditar>
                     </td>
                   </tr>
                 ))}

@@ -4,6 +4,9 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 import re
 
+
+from app.core.dependencies import require_roles
+from app.models.models import Usuario
 from app.database import get_db
 from app.models.producto import Producto
 from app.models.proveedor import Proveedor
@@ -93,6 +96,9 @@ def get_producto_by_id(producto_id: int, db: Session = Depends(get_db)):
 
 @router.post("/", response_model=ProductoResponse, status_code=status.HTTP_201_CREATED)
 def create_producto(producto: ProductoCreate, db: Session = Depends(get_db)):
+    _: Usuario = Depends(require_roles("admin", "visitador")),
+
+
     if producto.proveedor_id is not None:
         db_proveedor = db.query(Proveedor).filter(Proveedor.id == producto.proveedor_id).first()
         if not db_proveedor:
@@ -111,6 +117,7 @@ def create_producto(producto: ProductoCreate, db: Session = Depends(get_db)):
 
 @router.put("/{producto_id}", response_model=ProductoResponse)
 def update_producto(producto_id: int, producto_data: ProductoUpdate, db: Session = Depends(get_db)):
+    _: Usuario = Depends(require_roles("admin", "visitador")),
     db_producto = db.query(Producto).filter(Producto.id == producto_id).first()
     if not db_producto:
         raise HTTPException(status_code=404, detail="Producto no encontrado")
@@ -132,6 +139,7 @@ def update_producto(producto_id: int, producto_data: ProductoUpdate, db: Session
 
 @router.delete("/{producto_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_producto(producto_id: int, db: Session = Depends(get_db)):
+    _: Usuario = Depends(require_roles("admin", "visitador")),
     db_producto = db.query(Producto).filter(Producto.id == producto_id).first()
     if not db_producto:
         raise HTTPException(status_code=404, detail="Producto no encontrado")
@@ -144,6 +152,7 @@ def delete_producto(producto_id: int, db: Session = Depends(get_db)):
 # ── Endpoint para importación masiva en lote ───────────────────────────
 @router.post("/importar-json", response_model=ImportResponse)
 def importar_productos_json(items: List[ProductoImportItem], db: Session = Depends(get_db)):
+    _: Usuario = Depends(require_roles("admin", "visitador")),
     creados = 0
     actualizados = 0
     nits_no_encontrados = []  # 👈 para saber qué NIT no hizo match
@@ -198,4 +207,42 @@ def importar_productos_json(items: List[ProductoImportItem], db: Session = Depen
         "creados": creados,
         "actualizados": actualizados,
         "nits_no_encontrados": nits_no_encontrados
+    }
+
+from pydantic import BaseModel
+from typing import List
+
+class DeleteBulkSchema(BaseModel):
+    ids: List[int]
+
+class DeleteBulkResponse(BaseModel):
+    eliminados: int
+    mensaje: str
+
+
+
+@router.post("/eliminar-masivo", response_model=DeleteBulkResponse)
+def delete_productos_masivo(
+    payload: DeleteBulkSchema,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_roles("admin", "visitador"))
+):
+    if not payload.ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Debe proporcionar al menos un ID para eliminar"
+        )
+
+    # Ejecuta una sola consulta SQL DELETE usando IN (...)
+    eliminados = (
+        db.query(Producto)
+        .filter(Producto.id.in_(payload.ids))
+        .delete(synchronize_session=False)
+    )
+
+    db.commit()
+
+    return {
+        "eliminados": eliminados,
+        "mensaje": f"Se eliminaron {eliminados} productos correctamente."
     }

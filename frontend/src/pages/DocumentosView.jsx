@@ -9,6 +9,8 @@ import { ExcelExportButton } from '../components/ui/ExcelActions'
 import { useNavigate } from 'react-router-dom'
 import { SearchableSelect } from '../components/ui/SearchableSelect' // ajusta la ruta según tu estructura
 import ProveedorSearchSelect from '../components/ui/ProveedorSearchSelect'
+import { useAuth } from '../context/AuthContext'
+import PuedeEditar from '../components/PuedeEditar'
 
 const MAX_FILE_SIZE_MB = 10
 const ACCEPTED_EXTENSIONS = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx'
@@ -475,6 +477,8 @@ setProveedores(resProv.data)
             isTemplate={true}
           />
 
+
+<PuedeEditar>
           <button
             onClick={() => fileInputRef.current?.click()}
             className="border border-surface-200 hover:bg-surface-100 text-surface-700 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
@@ -483,6 +487,7 @@ setProveedores(resProv.data)
           >
             <Upload size={16} /> Importar
           </button>
+          </PuedeEditar>
 
           <button
             onClick={handleOpenExportModal}
@@ -493,12 +498,16 @@ setProveedores(resProv.data)
             {selectedIds.size > 0 ? `Exportar (${selectedIds.size})` : 'Exportar'}
           </button>
 
+
+<PuedeEditar>
           <button
             onClick={() => openDocumentoModal()}
             className="bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
           >
             <Plus size={16} /> Nuevo Documento
           </button>
+
+          </PuedeEditar>
         </div>
       </div>
 
@@ -634,6 +643,8 @@ setProveedores(resProv.data)
                         </div>
                       </td>
                       <td className="px-5 py-2.5 text-right whitespace-nowrap">
+                        
+                        <PuedeEditar>
                         <button
                           onClick={() => openDocumentoModal(doc)}
                           className="p-1 hover:text-brand-500 transition-colors mr-2"
@@ -641,6 +652,9 @@ setProveedores(resProv.data)
                         >
                           <Edit2 size={15} />
                         </button>
+                        </PuedeEditar>
+                        
+                        <PuedeEditar>
                         <button
                           onClick={() => handleOpenDeleteModal(doc)}
                           className="p-1 hover:text-danger-500 transition-colors"
@@ -648,6 +662,7 @@ setProveedores(resProv.data)
                         >
                           <Trash2 size={15} />
                         </button>
+                        </PuedeEditar>
                       </td>
                     </tr>
                   )

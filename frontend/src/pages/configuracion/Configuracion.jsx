@@ -469,6 +469,7 @@ function TabSedes() {
 const ROL_META = {
   admin: { label: 'Admin',   badge: 'bg-brand-100 text-brand-700', Icon: Shield },
   user:  { label: 'Usuario', badge: 'bg-surface-100 text-surface-600', Icon: User },
+  visitador: { label: 'Visitador', badge: 'bg-purple-100 text-purple-700',   Icon: User },
 }
 
 function Initials({ nombre }) {

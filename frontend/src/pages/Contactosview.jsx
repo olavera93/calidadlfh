@@ -8,6 +8,7 @@ import ExcelPreviewModal from '../components/ui/ExcelPreviewModal'
 import { ExcelExportButton } from '../components/ui/ExcelActions'
 import { useSearchParams } from 'react-router-dom'
 import ProveedorSearchSelect from '../components/ui/ProveedorSearchSelect'
+import PuedeEditar from '../components/PuedeEditar'
 
 export default function ContactosView() {
   // Datos
@@ -440,14 +441,16 @@ export default function ContactosView() {
             isTemplate={true}
           />
 
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="border border-surface-200 hover:bg-surface-100 text-surface-700 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
-            title="Importar Excel/CSV"
-            disabled={loading}
-          >
-            <Upload size={16} /> Importar
-          </button>
+          <PuedeEditar>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="border border-surface-200 hover:bg-surface-100 text-surface-700 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
+              title="Importar Excel/CSV"
+              disabled={loading}
+            >
+              <Upload size={16} /> Importar
+            </button>
+          </PuedeEditar>
 
           <button
             onClick={handleOpenExportModal}
@@ -458,12 +461,14 @@ export default function ContactosView() {
             {selectedItems.size > 0 ? `Exportar (${selectedItems.size})` : 'Exportar'}
           </button>
 
+          <PuedeEditar> 
           <button
             onClick={() => openContactoModal()}
             className="bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
           >
             <Plus size={16} /> Nuevo Contacto
           </button>
+          </PuedeEditar>
         </div>
       </div>
 
@@ -540,13 +545,16 @@ export default function ContactosView() {
                       >
                         <Eye size={15} />
                       </button>
-                      <button
-                        onClick={() => handleOpenDeleteModal(c)}
-                        className="p-1 hover:text-danger-500 transition-colors"
-                        title="Eliminar"
-                      >
-                        <Trash2 size={15} />
-                      </button>
+                      
+                      <PuedeEditar>
+                        <button
+                          onClick={() => handleOpenDeleteModal(c)}
+                          className="p-1 hover:text-danger-500 transition-colors"
+                          title="Eliminar"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </PuedeEditar>
                     </td>
                   </tr>
                 ))}
@@ -637,6 +645,8 @@ export default function ContactosView() {
                   >
                     Cerrar
                   </button>
+
+                  <PuedeEditar>
                   <button
                     type="button"
                     onClick={() => openContactoModal(editingItem)}
@@ -644,6 +654,7 @@ export default function ContactosView() {
                   >
                     <Edit2 size={13} /> Editar
                   </button>
+                  </PuedeEditar>
                 </div>
               </div>
             ) : (
