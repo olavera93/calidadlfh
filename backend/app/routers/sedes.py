@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_current_user, get_sedes_permitidas, require_admin
+from app.core.dependencies import get_current_user, get_sedes_permitidas, require_admin, require_roles
 from app.crud import sede as crud_sede
 from app.database import get_db
 from app.models.models import Usuario
@@ -55,7 +55,7 @@ def list_areas(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No tienes acceso a esta sede",
         )
-    if include_inactive and current_user.rol != "admin":
+    if include_inactive and current_user.rol not in ("admin", "user"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Solo administradores")
     return crud_sede.get_areas_by_sede(db, sede_id, include_inactive=include_inactive)
 
@@ -69,7 +69,7 @@ def create_area(
     sede_id: int,
     data: AreaCreate,
     db: Session = Depends(get_db),
-    _: Usuario = Depends(require_admin),
+    _: Usuario = Depends(require_roles("admin", "user")),
 ):
     sede = crud_sede.get_by_id(db, sede_id)
     if not sede:
@@ -82,7 +82,7 @@ def update_area(
     area_id: int,
     data: AreaUpdate,
     db: Session = Depends(get_db),
-    _: Usuario = Depends(require_admin),
+    _: Usuario = Depends(require_roles("admin", "user")),
 ):
     area = crud_sede.update_area(db, area_id, data)
     if not area:

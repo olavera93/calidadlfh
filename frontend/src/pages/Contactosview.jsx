@@ -647,14 +647,14 @@ export default function ContactosView() {
                   </button>
 
                   <PuedeEditar>
-                  <button
-                    type="button"
-                    onClick={() => openContactoModal(editingItem)}
-                    className="px-4 py-2 rounded-xl text-xs font-semibold bg-amber-400 text-amber-950 hover:bg-amber-500 transition-colors shadow-sm flex items-center gap-1.5"
-                  >
-                    <Edit2 size={13} /> Editar
-                  </button>
-                  </PuedeEditar>
+  <button
+    type="button"
+    onClick={() => openContactoModal(editingItem)}
+    className="px-4 py-2 rounded-xl text-xs font-semibold bg-[#00aec7] hover:bg-[#0096ab] active:bg-[#007f91] text-white transition-colors shadow-sm flex items-center gap-1.5"
+  >
+    <Edit2 size={13} /> Editar
+  </button>
+</PuedeEditar>
                 </div>
               </div>
             ) : (
