@@ -1,38 +1,31 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import or_
-from sqlalchemy.orm import Session
-from typing import List, Optional
 import re
+from typing import List, Optional
 
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func, or_
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.dependencies import require_roles
-from app.models.models import Usuario
 from app.database import get_db
+from app.models.models import Usuario
 from app.models.producto import Producto
 from app.models.proveedor import Proveedor
 from app.schemas.producto import (
-    ProductoCreate,
-    ProductoUpdate,
-    ProductoResponse,
-    ProductoImportItem,
+    DeleteBulkResponse,
+    DeleteBulkSchema,
     ImportResponse,
-    ProductoPaginatedResponse
+    ProductoCreate,
+    ProductoImportItem,
+    ProductoPaginatedResponse,
+    ProductoResponse,
+    ProductoUpdate,
 )
 
-router = APIRouter(
-    prefix="/api/productos",
-    tags=["Productos"]
-)
-
-from sqlalchemy import or_, func
-from sqlalchemy.orm import Session, joinedload
+router = APIRouter(prefix="/api/productos", tags=["Productos"])
 
 
 def normalizar_identificacion(valor) -> str:
-    """
-    Deja solo dígitos. Así '39.283.928.392', '39283928392-1',
-    ' 39283928392 ' y 39283928392 (número) matchean igual.
-    """
+    """Deja solo dígitos para emparejar identificaciones."""
     if valor is None:
         return ""
     return re.sub(r"\D", "", str(valor))
@@ -44,7 +37,7 @@ def get_productos(
     limit: int = Query(default=10, le=100000),
     search: Optional[str] = None,
     proveedor_id: Optional[int] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     query = db.query(Producto).outerjoin(Proveedor, Producto.proveedor_id == Proveedor.id)
 
@@ -87,18 +80,18 @@ def get_producto_by_id(producto_id: int, db: Session = Depends(get_db)):
 
     if not producto:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Producto no encontrado"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Producto no encontrado"
         )
 
     return producto
 
 
 @router.post("/", response_model=ProductoResponse, status_code=status.HTTP_201_CREATED)
-def create_producto(producto: ProductoCreate, db: Session = Depends(get_db)):
-    _: Usuario = Depends(require_roles("admin", "visitador")),
-
-
+def create_producto(
+    producto: ProductoCreate,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_roles("admin", "visitador")),
+):
     if producto.proveedor_id is not None:
         db_proveedor = db.query(Proveedor).filter(Proveedor.id == producto.proveedor_id).first()
         if not db_proveedor:
@@ -116,8 +109,12 @@ def create_producto(producto: ProductoCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/{producto_id}", response_model=ProductoResponse)
-def update_producto(producto_id: int, producto_data: ProductoUpdate, db: Session = Depends(get_db)):
-    _: Usuario = Depends(require_roles("admin", "visitador")),
+def update_producto(
+    producto_id: int,
+    producto_data: ProductoUpdate,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_roles("admin", "visitador")),
+):
     db_producto = db.query(Producto).filter(Producto.id == producto_id).first()
     if not db_producto:
         raise HTTPException(status_code=404, detail="Producto no encontrado")
@@ -125,7 +122,9 @@ def update_producto(producto_id: int, producto_data: ProductoUpdate, db: Session
     update_dict = producto_data.model_dump(exclude_unset=True)
 
     if "proveedor_id" in update_dict and update_dict["proveedor_id"] is not None:
-        db_proveedor = db.query(Proveedor).filter(Proveedor.id == update_dict["proveedor_id"]).first()
+        db_proveedor = (
+            db.query(Proveedor).filter(Proveedor.id == update_dict["proveedor_id"]).first()
+        )
         if not db_proveedor:
             raise HTTPException(status_code=404, detail="El proveedor especificado no existe")
 
@@ -138,8 +137,11 @@ def update_producto(producto_id: int, producto_data: ProductoUpdate, db: Session
 
 
 @router.delete("/{producto_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_producto(producto_id: int, db: Session = Depends(get_db)):
-    _: Usuario = Depends(require_roles("admin", "visitador")),
+def delete_producto(
+    producto_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_roles("admin", "visitador")),
+):
     db_producto = db.query(Producto).filter(Producto.id == producto_id).first()
     if not db_producto:
         raise HTTPException(status_code=404, detail="Producto no encontrado")
@@ -149,20 +151,22 @@ def delete_producto(producto_id: int, db: Session = Depends(get_db)):
     return None
 
 
-# ── Endpoint para importación masiva en lote ───────────────────────────
 @router.post("/importar-json", response_model=ImportResponse)
-def importar_productos_json(items: List[ProductoImportItem], db: Session = Depends(get_db)):
-    _: Usuario = Depends(require_roles("admin", "visitador")),
+def importar_productos_json(
+    items: List[ProductoImportItem],
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_roles("admin", "visitador")),
+):
     creados = 0
     actualizados = 0
-    nits_no_encontrados = []  # 👈 para saber qué NIT no hizo match
+    nits_no_encontrados = []
 
     proveedores = db.query(Proveedor).all()
     prov_by_id = {p.id: p.id for p in proveedores}
-    # Clave normalizada (solo dígitos) en vez de str() crudo
     prov_by_ident = {
         normalizar_identificacion(p.identificacion): p.id
-        for p in proveedores if p.identificacion
+        for p in proveedores
+        if p.identificacion
     }
 
     for item in items:
@@ -174,7 +178,6 @@ def importar_productos_json(items: List[ProductoImportItem], db: Session = Depen
         elif nit_normalizado and nit_normalizado in prov_by_ident:
             target_prov_id = prov_by_ident[nit_normalizado]
         elif nit_normalizado:
-            # Había un NIT en el excel pero no coincide con ningún proveedor
             nits_no_encontrados.append(item.proveedor_identificacion)
 
         existente = db.query(Producto).filter(Producto.codigo == item.codigo).first()
@@ -197,7 +200,7 @@ def importar_productos_json(items: List[ProductoImportItem], db: Session = Depen
                 laboratorio=item.laboratorio,
                 registro_sanitario=item.registro_sanitario,
                 estado=item.estado or "ACTIVO",
-                proveedor_id=target_prov_id
+                proveedor_id=target_prov_id,
             )
             db.add(nuevo)
             creados += 1
@@ -206,34 +209,22 @@ def importar_productos_json(items: List[ProductoImportItem], db: Session = Depen
     return {
         "creados": creados,
         "actualizados": actualizados,
-        "nits_no_encontrados": nits_no_encontrados
+        "nits_no_encontrados": nits_no_encontrados,
     }
-
-from pydantic import BaseModel
-from typing import List
-
-class DeleteBulkSchema(BaseModel):
-    ids: List[int]
-
-class DeleteBulkResponse(BaseModel):
-    eliminados: int
-    mensaje: str
-
 
 
 @router.post("/eliminar-masivo", response_model=DeleteBulkResponse)
 def delete_productos_masivo(
     payload: DeleteBulkSchema,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(require_roles("admin", "visitador"))
+    current_user: Usuario = Depends(require_roles("admin", "visitador")),
 ):
     if not payload.ids:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Debe proporcionar al menos un ID para eliminar"
+            detail="Debe proporcionar al menos un ID para eliminar",
         )
 
-    # Ejecuta una sola consulta SQL DELETE usando IN (...)
     eliminados = (
         db.query(Producto)
         .filter(Producto.id.in_(payload.ids))
@@ -244,5 +235,5 @@ def delete_productos_masivo(
 
     return {
         "eliminados": eliminados,
-        "mensaje": f"Se eliminaron {eliminados} productos correctamente."
+        "mensaje": f"Se eliminaron {eliminados} productos correctamente.",
     }

@@ -80,14 +80,19 @@ def get_contacto(contacto_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/", response_model=ContactoResponse, status_code=status.HTTP_201_CREATED)
-def create_contacto(contacto: ContactoCreate, db: Session = Depends(get_db)):
-    _: Usuario = Depends(require_roles("admin", "visitador")),
-    proveedor_exists = db.query(Proveedor).filter(Proveedor.id == contacto.proveedor_id).first()
-    if not proveedor_exists:
-        raise HTTPException(
-            status_code=400,
-            detail=f"No existe un proveedor con el ID {contacto.proveedor_id}"
-        )
+def create_contacto(
+    contacto: ContactoCreate, 
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(require_roles("admin", "visitador"))
+):
+    # Validar existencia solo si se envía un proveedor_id
+    if contacto.proveedor_id is not None:
+        proveedor_exists = db.query(Proveedor).filter(Proveedor.id == contacto.proveedor_id).first()
+        if not proveedor_exists:
+            raise HTTPException(
+                status_code=400,
+                detail=f"No existe un proveedor con el ID {contacto.proveedor_id}"
+            )
 
     nuevo_contacto = Contacto(**contacto.model_dump())
     db.add(nuevo_contacto)
@@ -97,15 +102,20 @@ def create_contacto(contacto: ContactoCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/{contacto_id}", response_model=ContactoResponse)
-def update_contacto(contacto_id: int, contacto_data: ContactoUpdate, db: Session = Depends(get_db)):
-    _: Usuario = Depends(require_roles("admin", "visitador")),
+def update_contacto(
+    contacto_id: int, 
+    contacto_data: ContactoUpdate, 
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(require_roles("admin", "visitador"))
+):
     db_contacto = db.query(Contacto).filter(Contacto.id == contacto_id).first()
     if not db_contacto:
         raise HTTPException(status_code=404, detail="Contacto no encontrado")
 
     update_dict = contacto_data.model_dump(exclude_unset=True)
 
-    if "proveedor_id" in update_dict:
+    # Validar solo si proveedor_id está en la petición y NO es None
+    if update_dict.get("proveedor_id") is not None:
         proveedor_exists = db.query(Proveedor).filter(Proveedor.id == update_dict["proveedor_id"]).first()
         if not proveedor_exists:
             raise HTTPException(status_code=400, detail="El proveedor especificado no existe")
@@ -116,7 +126,6 @@ def update_contacto(contacto_id: int, contacto_data: ContactoUpdate, db: Session
     db.commit()
     db.refresh(db_contacto)
     return db_contacto
-
 
 @router.delete("/{contacto_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_contacto(contacto_id: int, db: Session = Depends(get_db)):

@@ -12,6 +12,7 @@ class ProveedorBase(BaseModel):
     telefono: Optional[str] = None
     direccion: Optional[str] = None
     correo: Optional[EmailStr] = None
+    activo: bool = True  # Valor por defecto
 
 
 class ProveedorCreate(ProveedorBase):
@@ -24,6 +25,7 @@ class ProveedorUpdate(BaseModel):
     telefono: Optional[str] = None
     direccion: Optional[str] = None
     correo: Optional[EmailStr] = None
+    activo: Optional[bool] = None  # Permite cambiar a False/True
 
 
 # Versión "plana" del proveedor, SIN el campo productos.

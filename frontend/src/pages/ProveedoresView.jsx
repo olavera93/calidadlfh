@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, Edit2, Trash2, Truck, Mail, Phone, MapPin, X, Upload, Download } from 'lucide-react'
+import { Plus, Search, Edit2, Trash2, Truck, Mail, Phone, MapPin, X, Upload, Download, CheckCircle, XCircle } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import api from '../services/api'
 import { EmptyState } from '../components/ui/EmptyState'
@@ -19,8 +19,9 @@ export default function ProveedoresView() {
   // Referencia para el input file oculto
   const fileInputRef = useRef(null)
 
-  // Filtro
+  // Filtros
   const [search, setSearch] = useState('')
+  const [filtroEstado, setFiltroEstado] = useState('todos')
 
   // Selección y Paginación
   const [selectedIds, setSelectedIds] = useState(new Set())
@@ -31,7 +32,7 @@ export default function ProveedoresView() {
   const [showModal, setShowModal] = useState(false)
   const [editingProveedor, setEditingProveedor] = useState(null)
 
-  /* ── Estados para Modal de Eliminación de Proveedor ─────── */
+  /* ── Estados para Modal de Inactivación / Eliminación ─────── */
   const [showModalDelete, setShowModalDelete] = useState(false)
   const [provToDelete, setProvToDelete] = useState(null)
   const [deleting, setDeleting] = useState(false)
@@ -47,7 +48,8 @@ export default function ProveedoresView() {
     { key: 'nombre', label: 'Razón Social / Nombre' },
     { key: 'correo', label: 'Correo' },
     { key: 'telefono', label: 'Teléfono' },
-    { key: 'direccion', label: 'Dirección' }
+    { key: 'direccion', label: 'Dirección' },
+    { key: 'activo', label: 'Estado' }
   ]
 
   // Form State
@@ -56,7 +58,8 @@ export default function ProveedoresView() {
     identificacion: '',
     telefono: '',
     direccion: '',
-    correo: ''
+    correo: '',
+    activo: true
   })
 
   /* ── Cargar Datos de la API ──────────────────────────────── */
@@ -77,22 +80,27 @@ export default function ProveedoresView() {
     fetchProveedores()
   }, [fetchProveedores])
 
-  /* ── Búsqueda Dinámica ───────────────────────────────────── */
+  /* ── Búsqueda y Filtrado Dinámico ────────────────────────── */
   const proveedoresFiltrados = useMemo(() => {
     return proveedores.filter((p) => {
       const term = search.toLowerCase()
-      return (
+      const coincideBusqueda =
         p.nombre?.toLowerCase().includes(term) ||
         p.identificacion?.toLowerCase().includes(term) ||
         p.correo?.toLowerCase().includes(term)
-      )
+
+      let coincideEstado = true
+      if (filtroEstado === 'activos') coincideEstado = Boolean(p.activo) === true
+      if (filtroEstado === 'inactivos') coincideEstado = Boolean(p.activo) === false
+
+      return coincideBusqueda && coincideEstado
     })
-  }, [proveedores, search])
+  }, [proveedores, search, filtroEstado])
 
   // Resetear a la página 1 cuando cambian los filtros o el tamaño de página
   useEffect(() => {
     setCurrentPage(1)
-  }, [search, itemsPerPage])
+  }, [search, filtroEstado, itemsPerPage])
 
   /* ── Paginación ───────────────────────────────────────────── */
   const proveedoresPaginados = useMemo(() => {
@@ -147,7 +155,8 @@ export default function ProveedoresView() {
       nombre: p.nombre || '',
       correo: p.correo || '',
       telefono: p.telefono || '',
-      direccion: p.direccion || ''
+      direccion: p.direccion || '',
+      activo: Boolean(p.activo) ? 'Activo' : 'Inactivo'
     }))
 
     setExcelData(formattedData)
@@ -162,7 +171,8 @@ export default function ProveedoresView() {
       'Razón Social / Nombre': p.nombre,
       'Correo': p.correo,
       'Teléfono': p.telefono,
-      'Dirección': p.direccion
+      'Dirección': p.direccion,
+      'Estado': p.activo
     }))
 
     const worksheet = XLSX.utils.json_to_sheet(dataToExport)
@@ -173,7 +183,7 @@ export default function ProveedoresView() {
     setShowExcelModal(false)
   }
 
-  /* ── Importar: Lectura del Archivo y Abrir Modal Previo ───── */
+  /* ── Importar: Lectura del Archivo y Parsing de Estado ───── */
   const handleFileChange = (e) => {
     const file = e.target.files[0]
     if (!file) return
@@ -193,17 +203,30 @@ export default function ProveedoresView() {
         }
 
         const proveedoresAImportar = data
-          .map((item) => ({
-            identificacion: String(
-              item['Identificación / NIT'] || item['identificacion'] || item['NIT'] || item['ID'] || ''
-            ).trim(),
-            nombre: String(
-              item['Razón Social / Nombre'] || item['nombre'] || item['Nombre'] || ''
-            ).trim(),
-            correo: String(item['Correo'] || item['correo'] || item['Email'] || '').trim() || null,
-            telefono: String(item['Teléfono'] || item['telefono'] || item['Telefono'] || '').trim() || null,
-            direccion: String(item['Dirección'] || item['direccion'] || item['Direccion'] || '').trim() || null
-          }))
+          .map((item) => {
+            // Normalización del valor de estado enviado en el Excel
+            const rawEstado = String(
+              item['Estado'] || item['activo'] || item['estado'] || ''
+            ).trim().toLowerCase()
+
+            let esActivo = true
+            if (['inactivo', 'inactiva', 'no', '0', 'false'].includes(rawEstado)) {
+              esActivo = false
+            }
+
+            return {
+              identificacion: String(
+                item['Identificación / NIT'] || item['identificacion'] || item['NIT'] || item['ID'] || ''
+              ).trim(),
+              nombre: String(
+                item['Razón Social / Nombre'] || item['nombre'] || item['Nombre'] || ''
+              ).trim(),
+              correo: String(item['Correo'] || item['correo'] || item['Email'] || '').trim() || null,
+              telefono: String(item['Teléfono'] || item['telefono'] || item['Telefono'] || '').trim() || null,
+              direccion: String(item['Dirección'] || item['direccion'] || item['Direccion'] || '').trim() || null,
+              activo: esActivo
+            }
+          })
           .filter((item) => item.identificacion !== '' && item.nombre !== '')
 
         if (proveedoresAImportar.length === 0) {
@@ -256,7 +279,7 @@ export default function ProveedoresView() {
     }
   }
 
-  /* ── Handlers de Eliminación ──────────────────────────────── */
+  /* ── Handlers de Desactivación (Soft Delete) ─────────────── */
   const handleOpenDeleteModal = (prov) => {
     setProvToDelete(prov)
     setShowModalDelete(true)
@@ -272,7 +295,7 @@ export default function ProveedoresView() {
       setProvToDelete(null)
       fetchProveedores()
     } catch (err) {
-      alert(err.response?.data?.detail || 'Error al eliminar el proveedor')
+      alert(err.response?.data?.detail || 'Error al desactivar el proveedor')
     } finally {
       setDeleting(false)
     }
@@ -287,11 +310,12 @@ export default function ProveedoresView() {
         identificacion: prov.identificacion || '',
         telefono: prov.telefono || '',
         direccion: prov.direccion || '',
-        correo: prov.correo || ''
+        correo: prov.correo || '',
+        activo: prov.activo !== undefined ? Boolean(prov.activo) : true
       })
     } else {
       setEditingProveedor(null)
-      setFormData({ nombre: '', identificacion: '', telefono: '', direccion: '', correo: '' })
+      setFormData({ nombre: '', identificacion: '', telefono: '', direccion: '', correo: '', activo: true })
     }
     setShowModal(true)
   }
@@ -309,19 +333,31 @@ export default function ProveedoresView() {
 
       {/* Buscador & Botones de Acción */}
       <div className="card px-4 py-3 flex items-center justify-between gap-4 flex-wrap">
-        <div className="relative w-full max-w-md">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
-          <input
-            type="text"
-            placeholder="Buscar por NIT/ID, nombre o correo..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="input-base pl-9 w-full"
-          />
+        <div className="flex items-center gap-3 flex-1 min-w-[300px]">
+          <div className="relative w-full max-w-md">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
+            <input
+              type="text"
+              placeholder="Buscar por NIT/ID, nombre o correo..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="input-base pl-9 w-full"
+            />
+          </div>
+
+          {/* Filtro por Estado */}
+          <select
+            value={filtroEstado}
+            onChange={(e) => setFiltroEstado(e.target.value)}
+            className="input-base text-xs py-2 px-3 w-36 cursor-pointer"
+          >
+            <option value="todos">Todos</option>
+            <option value="activos">Sólo Activos</option>
+            <option value="inactivos">Sólo Inactivos</option>
+          </select>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          {/* Componente reusable de Plantilla */}
           <ExcelExportButton
             columns={excelColumns}
             filename="plantilla_proveedores"
@@ -330,15 +366,15 @@ export default function ProveedoresView() {
             isTemplate={true}
           />
 
-<PuedeEditar>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="border border-surface-200 hover:bg-surface-100 text-surface-700 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
-            title="Importar Excel/CSV"
-            disabled={loading}
-          >
-            <Upload size={16} /> Importar
-          </button>
+          <PuedeEditar>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="border border-surface-200 hover:bg-surface-100 text-surface-700 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
+              title="Importar Excel/CSV"
+              disabled={loading}
+            >
+              <Upload size={16} /> Importar
+            </button>
           </PuedeEditar>
 
           <button
@@ -403,6 +439,7 @@ export default function ProveedoresView() {
                   <th className="text-left px-4 py-3">Razón Social / Nombre</th>
                   <th className="text-left px-4 py-3">Contacto</th>
                   <th className="text-left px-4 py-3">Ubicación</th>
+                  <th className="text-center px-4 py-3">Estado</th>
                   <th className="text-right px-5 py-3">Acciones</th>
                 </tr>
               </thead>
@@ -454,8 +491,19 @@ export default function ProveedoresView() {
                         '—'
                       )}
                     </td>
+                    {/* Badge de Estado */}
+                    <td className="px-4 py-3 text-center">
+                      {Boolean(prov.activo) ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <CheckCircle size={12} /> Activo
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200">
+                          <XCircle size={12} /> Inactivo
+                        </span>
+                      )}
+                    </td>
                     <td className="px-5 py-3 text-right whitespace-nowrap">
-                      
                       <PuedeEditar>
                         <button
                           onClick={() => openModal(prov)}
@@ -463,17 +511,19 @@ export default function ProveedoresView() {
                           title="Editar"
                         >
                           <Edit2 size={15} />
-                      </button>
+                        </button>
                       </PuedeEditar>
 
-                    <PuedeEditar>
-                      <button
-                        onClick={() => handleOpenDeleteModal(prov)}
-                        className="p-1.5 text-surface-400 hover:text-danger-500 hover:bg-danger-50/50 rounded-lg transition-colors"
-                        title="Eliminar"
-                      >
-                        <Trash2 size={15} />
-                      </button>
+                      <PuedeEditar>
+                        {Boolean(prov.activo) && (
+                          <button
+                            onClick={() => handleOpenDeleteModal(prov)}
+                            className="p-1.5 text-surface-400 hover:text-danger-500 hover:bg-danger-50/50 rounded-lg transition-colors"
+                            title="Desactivar Proveedor"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        )}
                       </PuedeEditar>
                     </td>
                   </tr>
@@ -492,7 +542,7 @@ export default function ProveedoresView() {
         />
       </div>
 
-      {/* Modal Previsualización Excel (Importar / Exportar) */}
+      {/* Modal Previsualización Excel */}
       <ExcelPreviewModal
         isOpen={showExcelModal}
         onClose={() => setShowExcelModal(false)}
@@ -581,6 +631,23 @@ export default function ProveedoresView() {
                 />
               </div>
 
+              {/* Switch de Estado Activo/Inactivo */}
+              <div className="flex items-center justify-between pt-2 border-t border-surface-100">
+                <span className="text-xs font-semibold text-surface-600">Estado del Proveedor</span>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.activo}
+                    onChange={(e) => setFormData({ ...formData, activo: e.target.checked })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-surface-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-surface-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                  <span className="ml-2 text-xs font-medium text-surface-700">
+                    {formData.activo ? 'Activo' : 'Inactivo'}
+                  </span>
+                </label>
+              </div>
+
               <div className="flex justify-end gap-2 pt-4">
                 <button
                   type="button"
@@ -601,16 +668,15 @@ export default function ProveedoresView() {
         </div>
       )}
 
-      {/* MODAL DE CONFIRMACIÓN DE ELIMINACIÓN */}
+      {/* MODAL DE CONFIRMACIÓN DE DESACTIVACIÓN */}
       {showModalDelete && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-modal border border-surface-100 space-y-4">
             <h3 className="text-base font-semibold text-surface-800">
-              ¿Eliminar proveedor?
+              ¿Desactivar proveedor?
             </h3>
             <p className="text-xs text-surface-600">
-              ¿Estás seguro de que deseas eliminar el proveedor{' '}
-              <strong className="text-surface-800">{provToDelete?.nombre}</strong>? Esta acción no se puede deshacer.
+              El proveedor <strong className="text-surface-800">{provToDelete?.nombre}</strong> pasará a estado <strong>Inactivo</strong>. Sus contactos, devoluciones y productos asociados continuarán registrados sin cambios.
             </p>
             <div className="flex justify-end gap-2 pt-2">
               <button
@@ -629,7 +695,7 @@ export default function ProveedoresView() {
                 disabled={deleting}
                 className="px-4 py-2 rounded-xl text-xs font-semibold bg-danger-500 text-white hover:bg-danger-600 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {deleting ? 'Eliminando...' : 'Eliminar'}
+                {deleting ? 'Desactivando...' : 'Desactivar'}
               </button>
             </div>
           </div>

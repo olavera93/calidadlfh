@@ -419,6 +419,8 @@ const handleConfirmBulkDelete = async () => {
     alert(err.response?.data?.detail || 'Error al eliminar los productos seleccionados')
   } finally {
     setDeletingBulk(false)
+  
+  
   }
 }
   return (
@@ -453,7 +455,17 @@ const handleConfirmBulkDelete = async () => {
           className="w-56"
         />
 
-        
+        {selectedItems.size > 0 && (
+    
+        <button
+          onClick={() => setShowModalBulkDelete(true)}
+          className="bg-danger-50 hover:bg-danger-100 text-danger-600 border border-danger-200 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
+          title="Eliminar elementos seleccionados"
+        >
+          <Trash2 size={16} /> Eliminar ({selectedItems.size})
+        </button>
+      
+    )}
 
         <div className="flex items-center gap-2 shrink-0">
           <ExcelExportButton
@@ -733,6 +745,36 @@ const handleConfirmBulkDelete = async () => {
         </div>
       )}
 
+{/* MODAL DE CONFIRMACIÓN DE ELIMINACIÓN MASIVA */}
+      {showModalBulkDelete && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-modal border border-surface-100 space-y-4">
+            <h3 className="text-base font-semibold text-surface-800">
+              ¿Eliminar productos seleccionados?
+            </h3>
+            <p className="text-xs text-surface-600">
+              Estás a punto de eliminar <strong className="text-surface-800">{selectedItems.size}</strong> producto(s). Esta acción no se puede deshacer.
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowModalBulkDelete(false)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-surface-600 hover:bg-surface-100 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmBulkDelete}
+                disabled={deletingBulk}
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-danger-500 text-white hover:bg-danger-600 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {deletingBulk ? 'Eliminando...' : 'Eliminar Selección'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* MODAL DE CONFIRMACIÓN DE ELIMINACIÓN */}
       {showModalDelete && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -769,4 +811,5 @@ const handleConfirmBulkDelete = async () => {
       )}
     </div>
   )
+
 }

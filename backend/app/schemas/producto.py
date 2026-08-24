@@ -72,3 +72,10 @@ class ImportResponse(BaseModel):
     creados: int
     actualizados: int
     nits_no_encontrados: List[str] = []
+
+class DeleteBulkSchema(BaseModel):
+    ids: List[int]
+
+class DeleteBulkResponse(BaseModel):
+    eliminados: int
+    mensaje: str
