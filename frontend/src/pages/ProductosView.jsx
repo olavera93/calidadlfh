@@ -28,6 +28,7 @@ export default function ProductosView() {
   // Se inicializa con lo que venga en la URL (ej. ?proveedor_id=5 al llegar
   // desde el botón "Ver productos" en el detalle de un Proveedor)
   const [proveedorFilter, setProveedorFilter] = useState(searchParams.get('proveedor_id') || '')
+  const [estadoFilter, setEstadoFilter] = useState('')
 
   // Selección (Map<id, producto> para que sobreviva el cambio de página) y Paginación
   const [selectedItems, setSelectedItems] = useState(new Map())
@@ -122,7 +123,7 @@ export default function ProductosView() {
   /* ── Volver a página 1 cuando cambian filtros/búsqueda/tamaño ─────── */
   useEffect(() => {
     setCurrentPage(1)
-  }, [debouncedSearch, proveedorFilter, itemsPerPage])
+  }, [debouncedSearch, proveedorFilter, estadoFilter, itemsPerPage])
 
   /* ── Cargar Productos de la API (server-side pagination + search) ─── */
   const fetchData = useCallback(async () => {
@@ -134,7 +135,8 @@ export default function ProductosView() {
           skip: (currentPage - 1) * itemsPerPage,
           limit: itemsPerPage,
           search: debouncedSearch || undefined,
-          proveedor_id: proveedorFilter || undefined
+          proveedor_id: proveedorFilter || undefined,
+          estado: estadoFilter || undefined
         }
       })
 
@@ -160,7 +162,7 @@ export default function ProductosView() {
     } finally {
       setLoading(false)
     }
-  }, [currentPage, itemsPerPage, debouncedSearch, proveedorFilter])
+  }, [currentPage, itemsPerPage, debouncedSearch, proveedorFilter, estadoFilter])
 
   useEffect(() => {
     fetchData()
@@ -454,6 +456,16 @@ const handleConfirmBulkDelete = async () => {
           clearable
           className="w-56"
         />
+
+        <select
+          value={estadoFilter}
+          onChange={(e) => setEstadoFilter(e.target.value)}
+          className="input-base w-40 shrink-0 text-xs"
+        >
+          <option value="">Todos los Estados</option>
+          <option value="ACTIVO">Activo</option>
+          <option value="INACTIVO">Inactivo</option>
+        </select>
 
         {selectedItems.size > 0 && (
     

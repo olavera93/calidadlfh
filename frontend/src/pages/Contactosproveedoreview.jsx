@@ -7,6 +7,8 @@ import {
 import api from '../services/api'
 import { EmptyState } from '../components/ui/EmptyState'
 import Paginator from '../components/ui/Paginator'
+import PuedeEditar from '../components/PuedeEditar'
+import { useAuth } from '../context/AuthContext'
 
 /**
  * Vista de Contactos de un Proveedor. Ruta esperada: /proveedores/:id/contactos
@@ -255,6 +257,8 @@ export default function ContactosProveedorView() {
                   <p className="text-sm font-semibold text-surface-800 truncate">{contacto.nombre}</p>
 
                   <div className="flex items-center gap-1 shrink-0">
+
+                    <PuedeEditar>
                     <button
                       onClick={() => handleOpenEditModal(contacto)}
                       className="p-1.5 rounded-lg text-surface-400 hover:text-brand-600 hover:bg-brand-50 transition-colors"
@@ -262,6 +266,9 @@ export default function ContactosProveedorView() {
                     >
                       <Edit2 size={14} />
                     </button>
+                    </PuedeEditar>
+
+                    <PuedeEditar>
                     <button
                       onClick={() => handleOpenDeleteModal(contacto)}
                       className="p-1.5 rounded-lg text-surface-400 hover:text-danger-600 hover:bg-danger-50 transition-colors"
@@ -269,6 +276,7 @@ export default function ContactosProveedorView() {
                     >
                       <Trash2 size={14} />
                     </button>
+                    </PuedeEditar>
                   </div>
                 </div>
 

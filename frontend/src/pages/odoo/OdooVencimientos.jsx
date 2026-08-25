@@ -85,11 +85,7 @@ export default function OdooVencimientos() {
 
   return (
     <div className="space-y-4">
-      {/* Encabezado */}
-      <div>
-        <h2 className="text-lg font-bold text-surface-900">Vencimientos</h2>
-        <p className="text-sm text-surface-400 mt-0.5">Lotes con stock en ubicaciones internas</p>
-      </div>
+     
 
       {/* Filtros — todo en una fila compacta */}
       <div className="card p-4">

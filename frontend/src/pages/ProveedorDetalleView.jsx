@@ -1,19 +1,22 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
-  ArrowLeft, Beaker, Building2, Package, FileText, Tag, Mail, Phone, MapPin,
-  Plus, X, Download, Paperclip, ExternalLink, Edit2, Trash2, Users
+  ArrowLeft, Building2, Package, FileText, Tag, Mail, Phone, MapPin,
+  Plus, X, Download, Paperclip, ExternalLink, Edit2, Trash2, Users,
+  Eye, Briefcase, Cake, StickyNote
 } from 'lucide-react'
 import api from '../services/api'
 import { EmptyState } from '../components/ui/EmptyState'
 import Paginator from '../components/ui/Paginator'
+import { useAuth } from '../context/AuthContext'
+import PuedeEditar from '../components/PuedeEditar'
 
 /**
  * Vista de detalle de un Proveedor. Ruta esperada: /proveedores/:id
  *
  * Muestra:
  *  - Datos de contacto del proveedor
- *  - Laboratorios que maneja (derivados de sus productos) y los productos de cada uno
+ *  - Contactos del proveedor (nombre + acceso a detalle de cada uno)
  *  - Documentos asignados al proveedor (directos o a través de sus productos)
  *  - Modal para crear / editar un documento asociado directamente al proveedor, con archivo adjunto
  *  - Modal de confirmación para eliminar documento
@@ -51,10 +54,13 @@ export default function ProveedorDetalleView() {
   const navigate = useNavigate()
 
   const [proveedor, setProveedor] = useState(null)
-  const [productos, setProductos] = useState([])
+  const [contactos, setContactos] = useState([])
   const [documentos, setDocumentos] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  /* ── Estado para el Modal de Detalle de Contacto ─────────── */
+  const [contactoDetalle, setContactoDetalle] = useState(null)
 
   /* ── Estados para el Modal de Crear/Editar Documento ─────── */
   const [showModalDocumento, setShowModalDocumento] = useState(false)
@@ -85,21 +91,20 @@ export default function ProveedorDetalleView() {
     setLoading(true)
     setError('')
     try {
-      const [resProd, resDoc, resProv] = await Promise.all([
-        api.get('/productos', { params: { proveedor_id: proveedorId, limit: 1000 } }), // 👈 filtra en el backend
+      const [resContactos, resDoc, resProv] = await Promise.all([
+        api.get(`/contactos/proveedor/${proveedorId}`),
         api.get('/documentos/'),
         api.get('/proveedores')
       ])
 
-      // 👇 el backend devuelve { items, total }
-      const productosArray = Array.isArray(resProd.data)
-        ? resProd.data
-        : (resProd.data?.items || resProd.data?.data || [])
+      const contactosArray = Array.isArray(resContactos.data)
+        ? resContactos.data
+        : (resContactos.data?.items || resContactos.data?.data || [])
 
       const documentosArray = Array.isArray(resDoc.data) ? resDoc.data : (resDoc.data?.data || [])
       const proveedoresArray = Array.isArray(resProv.data) ? resProv.data : (resProv.data?.data || [])
 
-      setProductos(productosArray)
+      setContactos(contactosArray)
       setDocumentos(documentosArray)
 
       const encontrado = proveedoresArray.find((p) => String(p.id) === String(proveedorId))
@@ -114,27 +119,6 @@ export default function ProveedorDetalleView() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
-
-  /* ── Productos de este proveedor (todos, sin importar laboratorio) ── */
-  const productosDelProveedor = useMemo(() => {
-    return productos.filter(
-      (p) => String(p.proveedor_id ?? p.proveedor?.id) === String(proveedorId)
-    )
-  }, [productos, proveedorId])
-
-  /* ── Productos de este proveedor, agrupados por laboratorio ── */
-  const laboratorios = useMemo(() => {
-    const grupos = new Map()
-    productosDelProveedor.forEach((p) => {
-      const labKey = p.laboratorio?.trim() || 'Sin laboratorio'
-      if (!grupos.has(labKey)) grupos.set(labKey, [])
-      grupos.get(labKey).push(p)
-    })
-
-    return Array.from(grupos.entries())
-      .map(([nombre, items]) => ({ nombre, productos: items }))
-      .sort((a, b) => a.nombre.localeCompare(b.nombre))
-  }, [productosDelProveedor])
 
   /* ── Documentos asignados a este proveedor (directo o vía producto) ── */
   const documentosDelProveedor = useMemo(() => {
@@ -398,10 +382,10 @@ const handleFileChange = (e) => {
               <h2 className="text-xl font-bold text-surface-800">{proveedor.nombre}</h2>
 
               <button
-                onClick={() => navigate(`/proveedores/${proveedorId}/contactos`)}
+                onClick={() => navigate(`/productos?proveedor_id=${proveedorId}`)}
                 className="shrink-0 bg-[#0B1220] hover:bg-[#16233A] text-[#22D3EE] text-xs font-medium px-3 py-2 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
               >
-                <Users size={14} /> Contactos
+                <Package size={14} /> Ver productos
               </button>
             </div>
 
@@ -451,69 +435,57 @@ const handleFileChange = (e) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
-        {/* PRODUCTOS Y LABORATORIOS (resumen + acceso directo al listado filtrado) */}
+        {/* CONTACTOS (nombre + acceso a detalle de cada uno) */}
         <div className="bg-white rounded-2xl border border-surface-100 shadow-sm p-5 flex flex-col justify-between min-h-[400px]">
           <div>
-            <div className="flex items-center gap-2 mb-4">
-              <span className="flex items-center justify-center h-8 w-8 rounded-xl bg-[#0B1220] text-[#22D3EE]">
-                <Beaker size={16} />
-              </span>
-              <h3 className="text-sm font-semibold text-surface-800">
-                Productos y laboratorios
-              </h3>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <span className="flex items-center justify-center h-8 w-8 rounded-xl bg-[#0B1220] text-[#22D3EE]">
+                  <Users size={16} />
+                </span>
+                <h3 className="text-sm font-semibold text-surface-800">
+                  Contactos ({contactos.length})
+                </h3>
+              </div>
+
+
+              <PuedeEditar>
+              <button
+                onClick={() => navigate(`/proveedores/${proveedorId}/contactos`)}
+                className="text-[11px] font-medium text-surface-500 hover:text-brand-600 transition-colors flex items-center gap-1"
+              >
+                <Plus size={13} /> Gestionar
+              </button>
+              </PuedeEditar>
             </div>
 
-            {productosDelProveedor.length === 0 ? (
-              <EmptyState message="Este proveedor no tiene productos registrados." />
+            {contactos.length === 0 ? (
+              <EmptyState message="Este proveedor no tiene contactos registrados." />
             ) : (
-              <>
-                {/* Resumen numérico: evita repetir toda la lista aquí, el detalle vive en Productos */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-xl border border-surface-100 bg-surface-50/70 p-4">
-                    <span className="flex items-center gap-1.5 text-[10px] font-semibold text-surface-400 uppercase tracking-wide">
-                      <Package size={12} className="text-[#22D3EE]" /> Productos
+              <div className="space-y-2">
+                {contactos.map((contacto) => (
+                  <div
+                    key={contacto.id}
+                    className="flex items-center justify-between gap-2 rounded-xl border border-surface-100 bg-surface-50/70 hover:bg-white hover:border-brand-200 transition-all px-3.5 py-2.5"
+                  >
+                    <span className="text-sm font-medium text-surface-800 truncate">
+                      {contacto.nombre}
                     </span>
-                    <span className="mt-1.5 block text-2xl font-bold text-surface-800">
-                      {productosDelProveedor.length}
+                    <span className="text-sm font-medium text-surface-800 truncate">
+                      {contacto.cargo || 'Sin cargo'}
                     </span>
-                  </div>
-                  <div className="rounded-xl border border-surface-100 bg-surface-50/70 p-4">
-                    <span className="flex items-center gap-1.5 text-[10px] font-semibold text-surface-400 uppercase tracking-wide">
-                      <Beaker size={12} className="text-[#22D3EE]" /> Laboratorios
-                    </span>
-                    <span className="mt-1.5 block text-2xl font-bold text-surface-800">
-                      {laboratorios.length}
-                    </span>
-                  </div>
-                </div>
 
-                {/* Chips con los nombres de laboratorio, sin desglosar producto por producto */}
-                <div className="mt-4 flex flex-wrap gap-1.5">
-                  {laboratorios.slice(0, 8).map((lab) => (
-                    <span
-                      key={lab.nombre}
-                      className="text-[10px] font-medium text-surface-600 bg-surface-50 border border-surface-200 rounded-full px-2.5 py-1"
+                    <button
+                      onClick={() => setContactoDetalle(contacto)}
+                      className="shrink-0 text-[11px] font-semibold text-brand-600 hover:text-brand-700 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-brand-50 transition-colors cursor-pointer"
                     >
-                      {lab.nombre}
-                    </span>
-                  ))}
-                  {laboratorios.length > 8 && (
-                    <span className="text-[10px] font-medium text-surface-400 px-2 py-1">
-                      +{laboratorios.length - 8} más
-                    </span>
-                  )}
-                </div>
-              </>
+                      <Eye size={13} /> Ver detalles
+                    </button>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
-
-          {/* Acceso directo: lleva al listado general de Productos ya filtrado por este proveedor */}
-          <button
-            onClick={() => navigate(`/productos?proveedor_id=${proveedorId}`)}
-            className="mt-4 w-full bg-[#0B1220] hover:bg-[#16233A] text-[#22D3EE] text-xs font-semibold px-4 py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm cursor-pointer"
-          >
-            <Package size={14} /> Ver productos de este proveedor
-          </button>
         </div>
 
         {/* DOCUMENTOS ASIGNADOS */}
@@ -589,6 +561,8 @@ const handleFileChange = (e) => {
                         </button>
 
                         <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+
+                          <PuedeEditar>
                           <button
                             onClick={() => handleOpenEditModal(doc)}
                             className="p-1.5 text-surface-400 hover:text-brand-500 hover:bg-white rounded-lg transition-colors"
@@ -596,6 +570,10 @@ const handleFileChange = (e) => {
                           >
                             <Edit2 size={13} />
                           </button>
+                          </PuedeEditar>    
+
+
+                          <PuedeEditar>    
                           <button
                             onClick={() => handleOpenDeleteModal(doc)}
                             className="p-1.5 text-surface-400 hover:text-danger-500 hover:bg-white rounded-lg transition-colors"
@@ -603,6 +581,7 @@ const handleFileChange = (e) => {
                           >
                             <Trash2 size={13} />
                           </button>
+                          </PuedeEditar>
                         </div>
                       </div>
                     </div>
@@ -822,6 +801,87 @@ const handleFileChange = (e) => {
                   className="w-full h-full border-0"
                 />
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE DETALLE DE CONTACTO */}
+      {contactoDetalle && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-modal border border-surface-100 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-surface-100">
+              <h3 className="text-sm font-semibold text-surface-800">
+                {contactoDetalle.nombre}
+              </h3>
+              <button
+                onClick={() => setContactoDetalle(null)}
+                className="text-surface-400 hover:text-surface-600 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-3">
+              {contactoDetalle.cargo && (
+                <div className="flex items-center gap-2 text-sm text-surface-700">
+                  <Briefcase size={14} className="text-[#22D3EE] shrink-0" />
+                  {contactoDetalle.cargo}
+                </div>
+              )}
+
+              {contactoDetalle.telefono && (
+                <div className="flex items-center gap-2 text-sm text-surface-700">
+                  <Phone size={14} className="text-[#22D3EE] shrink-0" />
+                  {contactoDetalle.telefono}
+                </div>
+              )}
+
+              {contactoDetalle.correo && (
+                <div className="flex items-center gap-2 text-sm text-surface-700">
+                  <Mail size={14} className="text-[#22D3EE] shrink-0" />
+                  {contactoDetalle.correo}
+                </div>
+              )}
+
+              {contactoDetalle.fecha_cumpleanios && (
+                <div className="flex items-center gap-2 text-sm text-surface-700">
+                  <Cake size={14} className="text-[#22D3EE] shrink-0" />
+                  {new Date(contactoDetalle.fecha_cumpleanios + 'T00:00:00').toLocaleDateString('es-CO', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric'
+                  })}
+                </div>
+              )}
+
+              {contactoDetalle.observaciones && (
+                <div className="flex items-start gap-2 pt-2 border-t border-surface-100">
+                  <StickyNote size={14} className="text-surface-400 shrink-0 mt-0.5" />
+                  <p className="text-xs text-surface-500 leading-relaxed">
+                    {contactoDetalle.observaciones}
+                  </p>
+                </div>
+              )}
+
+              {!contactoDetalle.cargo &&
+                !contactoDetalle.telefono &&
+                !contactoDetalle.correo &&
+                !contactoDetalle.fecha_cumpleanios &&
+                !contactoDetalle.observaciones && (
+                  <p className="text-xs text-surface-400">
+                    Este contacto no tiene información adicional registrada.
+                  </p>
+                )}
+            </div>
+
+            <div className="flex justify-end gap-2 px-5 pb-5">
+              <button
+                onClick={() => setContactoDetalle(null)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-surface-600 hover:bg-surface-100 transition-colors"
+              >
+                Cerrar
+              </button>
             </div>
           </div>
         </div>

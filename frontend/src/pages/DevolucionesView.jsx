@@ -337,10 +337,13 @@ export default function DevolucionesView() {
 
   const getBadgeEstado = (estado) => {
     switch (estado) {
+      case 'Cambio Mano a Mano':
+      case 'NotaCredito':
+      case 'Recogido':
       case 'Completado':
-      case 'Aprobado':
+      case 'Otro':
         return 'bg-emerald-50 text-emerald-700 border-emerald-200'
-      case 'Rechazado':
+      case 'Destruido':
         return 'bg-danger-50 text-danger-700 border-danger-200'
       default:
         return 'bg-amber-50 text-amber-700 border-amber-200'
@@ -370,9 +373,12 @@ export default function DevolucionesView() {
           >
             <option value="">Todos los Estados</option>
             <option value="Pendiente">Pendiente</option>
-            <option value="Aprobado">Aprobado</option>
-            <option value="Rechazado">Rechazado</option>
+            <option value="Cambio Mano a Mano">Cambio Mano a Mano</option>
+            <option value="NotaCredito">Nota Crédito</option>
+            <option value="Recogido">Recogido</option>
             <option value="Completado">Completado</option>
+            <option value="Destruido">Destruido</option>
+            <option value="Otro">Otro</option>
           </select>
         </div>
 
@@ -667,9 +673,12 @@ export default function DevolucionesView() {
                     className="input-base w-full mt-1"
                   >
                     <option value="Pendiente">Pendiente</option>
-                    <option value="Aprobado">Aprobado</option>
-                    <option value="Rechazado">Rechazado</option>
+                    <option value="Cambio Mano a Mano">Cambio Mano a Mano</option>
+                    <option value="NotaCredito">Nota Crédito</option>
+                    <option value="Recogido">Recogido</option>
                     <option value="Completado">Completado</option>
+                    <option value="Destruido">Destruido</option>
+                    <option value="Otro">Otro</option>
                   </select>
                 </div>
 

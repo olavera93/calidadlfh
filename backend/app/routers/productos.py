@@ -37,6 +37,7 @@ def get_productos(
     limit: int = Query(default=10, le=100000),
     search: Optional[str] = None,
     proveedor_id: Optional[int] = None,
+    estado: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
     query = db.query(Producto).outerjoin(Proveedor, Producto.proveedor_id == Proveedor.id)
@@ -55,6 +56,9 @@ def get_productos(
 
     if proveedor_id:
         query = query.filter(Producto.proveedor_id == proveedor_id)
+
+    if estado:
+        query = query.filter(Producto.estado == estado)
 
     total = query.count()
 

@@ -890,11 +890,7 @@ export default function Configuracion() {
 
   return (
     <div className="space-y-5">
-      {/* Header */}
-      <div>
-        <h2 className="text-lg font-bold text-surface-900">Configuración</h2>
-        <p className="text-sm text-surface-400 mt-0.5">Ajustes del sistema y administración</p>
-      </div>
+     
 
       {/* Tabs */}
       <div className="flex gap-1 bg-surface-100 p-1 rounded-xl w-fit">
