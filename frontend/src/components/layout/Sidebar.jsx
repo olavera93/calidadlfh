@@ -130,7 +130,7 @@ export default function Sidebar() {
 
       {/* ── Navegación ── */}
       <nav className="flex-1 px-2 py-2 space-y-0.5 overflow-y-auto scrollbar-hide">
-        <NavItem to="/"                   icon={LayoutDashboard} label="Inicio"        collapsed={collapsed} />
+        
 
         <SectionLabel label="Monitoreo" collapsed={collapsed} />
         <NavItem to="/temperaturas"      icon={Thermometer}   label="Temperaturas"   collapsed={collapsed} />
