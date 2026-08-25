@@ -184,25 +184,74 @@ export default function ProveedorDetalleView() {
   }
 
   /* ── Manejo de Archivo ────────────────────────────────────── */
-  const handleFileChange = (e) => {
-    const file = e.target.files[0]
-    setFileError('')
+ /* ── Importar: Lectura del Archivo y Parsing de Estado ───── */
+const handleFileChange = (e) => {
+  const file = e.target.files[0]
+  if (!file) return
 
-    if (!file) {
-      setFormDocumento((prev) => ({ ...prev, archivo: null }))
-      return
-    }
+  const reader = new FileReader()
+  reader.onload = (evt) => {
+    try {
+      const bstr = evt.target.result
+      const workbook = XLSX.read(bstr, { type: 'binary' })
+      const wsname = workbook.SheetNames[0]
+      const ws = workbook.Sheets[wsname]
+      const data = XLSX.utils.sheet_to_json(ws)
 
-    const sizeMB = file.size / (1024 * 1024)
-    if (sizeMB > MAX_FILE_SIZE_MB) {
-      setFileError(`El archivo supera el límite de ${MAX_FILE_SIZE_MB}MB.`)
+      if (data.length === 0) {
+        alert('El archivo cargado está vacío')
+        return
+      }
+
+      const proveedoresAImportar = data
+        .map((item) => {
+          // Helper interno para buscar valores sin importar tildes o mayúsculas
+          const getFieldValue = (...possibleKeys) => {
+            const foundKey = Object.keys(item).find((k) =>
+              possibleKeys.some(
+                (pKey) =>
+                  k.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') ===
+                  pKey.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+              )
+            )
+            return foundKey ? String(item[foundKey]).trim() : ''
+          }
+
+          // Normalización del valor de estado enviado en el Excel
+          const rawEstado = getFieldValue('Estado', 'activo', 'status').toLowerCase()
+
+          let esActivo = true
+          if (['inactivo', 'inactiva', 'no', '0', 'false'].includes(rawEstado)) {
+            esActivo = false
+          }
+
+          return {
+            identificacion: getFieldValue('Identificación / NIT', 'identificacion', 'nit', 'id'),
+            nombre: getFieldValue('Razón Social / Nombre', 'nombre', 'razon social'),
+            correo: getFieldValue('Correo', 'email', 'correo electronico') || null,
+            telefono: getFieldValue('Teléfono', 'telefono', 'celular', 'phone') || null, // <-- Solucionado
+            direccion: getFieldValue('Dirección', 'direccion', 'address') || null,
+            activo: esActivo
+          }
+        })
+        .filter((item) => item.identificacion !== '' && item.nombre !== '')
+
+      if (proveedoresAImportar.length === 0) {
+        alert('No se encontraron registros válidos para importar.')
+        return
+      }
+
+      setExcelData(proveedoresAImportar)
+      setExcelModalMode('import')
+      setShowExcelModal(true)
+    } catch (err) {
+      alert('Error al leer el archivo Excel/CSV')
+    } finally {
       e.target.value = ''
-      setFormDocumento((prev) => ({ ...prev, archivo: null }))
-      return
     }
-
-    setFormDocumento((prev) => ({ ...prev, archivo: file }))
   }
+  reader.readAsBinaryString(file)
+}
 
   /* ── Abrir Modal Crear Documento ─────────────────────────── */
   const handleOpenCreateModal = () => {

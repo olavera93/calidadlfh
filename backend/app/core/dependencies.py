@@ -42,7 +42,7 @@ def require_admin(current_user: Usuario = Depends(get_current_user)) -> Usuario:
     if current_user.rol != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="PRUEBA123",
+            detail="error de permisos: se requiere rol de administrador o verifica con el encargado",
         )
     return current_user
 

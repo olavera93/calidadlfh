@@ -240,7 +240,52 @@ export default function ContactosView() {
     setShowExcelModal(false)
   }
 
-  const handleFileChange = (e) => {
+
+  // Helper para convertir fechas de Excel (números de serie) y strings a YYYY-MM-DD
+const parseExcelDate = (val) => {
+  if (val === null || val === undefined || val === '') return null
+
+  // Si Excel lo leyó como objeto Date
+  if (val instanceof Date && !isNaN(val)) {
+    return val.toISOString().slice(0, 10)
+  }
+
+  // Si viene como número de serie de Excel (ej: 46297)
+  if (typeof val === 'number' || (!isNaN(val) && !String(val).includes('-') && !String(val).includes('/'))) {
+    const num = Number(val)
+    if (num > 10000) {
+      const date = new Date((num - (25567 + 2)) * 86400 * 1000)
+      if (!isNaN(date)) {
+        return date.toISOString().slice(0, 10)
+      }
+    }
+  }
+
+  // Si viene como string (ej. "2026-08-25", "25/08/2026", "25-08-2026")
+  const str = String(val).trim()
+  if (!str) return null
+
+  // Caso DD/MM/YYYY o DD-MM-YYYY
+  const ddmmyyyy = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/)
+  if (ddmmyyyy) {
+    const day = ddmmyyyy[1].padStart(2, '0')
+    const month = ddmmyyyy[2].padStart(2, '0')
+    const year = ddmmyyyy[3]
+    return `${year}-${month}-${day}`
+  }
+
+  // Caso YYYY-MM-DD o YYYY/MM/DD
+  const yyyymmdd = str.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/)
+  if (yyyymmdd) {
+    const year = yyyymmdd[1]
+    const month = yyyymmdd[2].padStart(2, '0')
+    const day = yyyymmdd[3].padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  return str
+}
+const handleFileChange = (e) => {
     const file = e.target.files[0]
     if (!file) return
 
@@ -248,10 +293,11 @@ export default function ContactosView() {
     reader.onload = async (evt) => {
       try {
         const bstr = evt.target.result
-        const workbook = XLSX.read(bstr, { type: 'binary' })
+        // 1. Agregamos cellDates: true para interpretar fechas correctamente
+        const workbook = XLSX.read(bstr, { type: 'binary', cellDates: true })
         const wsname = workbook.SheetNames[0]
         const ws = workbook.Sheets[wsname]
-        const data = XLSX.utils.sheet_to_json(ws)
+        const data = XLSX.utils.sheet_to_json(ws, { raw: true })
 
         if (data.length === 0) {
           alert('El archivo cargado está vacío')
@@ -259,19 +305,24 @@ export default function ContactosView() {
         }
 
         const contactosAImportar = data
-          .map((item) => ({
-            nombre: String(item['Nombre'] || item['nombre'] || '').trim(),
-            fecha_cumpleanios: String(item['Fecha de Cumpleaños'] || item['fecha_cumpleanios'] || '').trim() || null,
-            cargo: String(item['Cargo'] || item['cargo'] || '').trim() || null,
-            telefono: String(item['Teléfono'] || item['telefono'] || item['Telefono'] || '').trim() || null,
-            correo: String(item['Correo'] || item['correo'] || item['Email'] || '').trim() || null,
-            observaciones: String(item['Observaciones'] || item['observaciones'] || '').trim() || null,
-            proveedor_identificacion: String(
-              item['NIT / ID Proveedor'] || item['proveedor_identificacion'] || item['NIT Proveedor'] || item['NIT'] || ''
-            ).trim() || null,
-            proveedor_nombre: String(item['Nombre Proveedor'] || item['Proveedor'] || '').trim() || null,
-            proveedor_id: item['proveedor_id'] || null
-          }))
+          .map((item) => {
+            const rawFecha = item['Fecha de Cumpleaños'] ?? item['fecha_cumpleanios'] ?? item['Cumpleaños']
+
+            return {
+              nombre: String(item['Nombre'] || item['nombre'] || '').trim(),
+              // 2. Parseamos la fecha para garantizar YYYY-MM-DD
+              fecha_cumpleanios: parseExcelDate(rawFecha),
+              cargo: String(item['Cargo'] || item['cargo'] || '').trim() || null,
+              telefono: String(item['Teléfono'] || item['telefono'] || item['Telefono'] || '').trim() || null,
+              correo: String(item['Correo'] || item['correo'] || item['Email'] || '').trim() || null,
+              observaciones: String(item['Observaciones'] || item['observaciones'] || '').trim() || null,
+              proveedor_identificacion: String(
+                item['NIT / ID Proveedor'] || item['proveedor_identificacion'] || item['NIT Proveedor'] || item['NIT'] || ''
+              ).trim() || null,
+              proveedor_nombre: String(item['Nombre Proveedor'] || item['Proveedor'] || '').trim() || null,
+              proveedor_id: item['proveedor_id'] || null
+            }
+          })
           .filter((item) => item.nombre !== '')
 
         if (contactosAImportar.length === 0) {

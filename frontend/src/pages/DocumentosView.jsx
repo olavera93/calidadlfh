@@ -262,57 +262,77 @@ setProveedores(resProv.data)
   }
 
   /* ── Importar: Lectura del Archivo Excel ───────────────────── */
-  const handleFileChange = (e) => {
-    const file = e.target.files[0]
-    if (!file) return
+  /* ── Importar: Lectura del Archivo Excel ───────────────────── */
+const handleFileChange = (e) => {
+  const file = e.target.files[0]
+  if (!file) return
 
-    const reader = new FileReader()
-    reader.onload = (evt) => {
-      try {
-        const bstr = evt.target.result
-        const workbook = XLSX.read(bstr, { type: 'binary' })
-        const wsname = workbook.SheetNames[0]
-        const ws = workbook.Sheets[wsname]
-        const data = XLSX.utils.sheet_to_json(ws)
+  const reader = new FileReader()
+  reader.onload = (evt) => {
+    try {
+      const bstr = evt.target.result
+      const workbook = XLSX.read(bstr, { type: 'binary' })
+      const wsname = workbook.SheetNames[0]
+      const ws = workbook.Sheets[wsname]
+      const data = XLSX.utils.sheet_to_json(ws)
 
-        if (data.length === 0) {
-          alert('El archivo cargado está vacío')
-          return
-        }
-
-        const docsAImportar = data
-          .map((item) => {
-            const tagsRaw = String(item['Etiquetas'] || item['etiquetas'] || '').trim()
-            const tagsArray = tagsRaw ? tagsRaw.split(',').map((t) => t.trim().toUpperCase()) : []
-
-            return {
-              nombre_docu: String(item['Nombre del Documento'] || item['nombre_docu'] || item['nombre'] || '').trim(),
-              producto_codigo: String(item['Código Producto'] || item['producto_codigo'] || '').trim(),
-              producto_nombre: String(item['Producto'] || item['producto_nombre'] || '').trim(),
-              laboratorio: String(item['Laboratorio'] || item['laboratorio'] || '').trim(),
-              proveedor_nombre: String(item['Proveedor'] || item['proveedor_nombre'] || '').trim(),
-              etiquetas: tagsArray,
-              etiquetas_str: tagsRaw
-            }
-          })
-          .filter((item) => item.nombre_docu !== '')
-
-        if (docsAImportar.length === 0) {
-          alert('No se encontraron documentos válidos en el archivo.')
-          return
-        }
-
-        setExcelData(docsAImportar)
-        setExcelModalMode('import')
-        setShowExcelModal(true)
-      } catch (err) {
-        alert('Error al leer el archivo Excel/CSV')
-      } finally {
-        e.target.value = ''
+      if (data.length === 0) {
+        alert('El archivo cargado está vacío')
+        return
       }
+
+      // Helper para buscar columnas dinámicamente ignorando tildes, mayúsculas y sufijos
+      const getFieldValue = (item, ...possibleKeys) => {
+        const foundKey = Object.keys(item).find((k) =>
+          possibleKeys.some(
+            (pKey) =>
+              k.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') ===
+              pKey.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+          )
+        )
+        return foundKey ? String(item[foundKey]).trim() : ''
+      }
+
+      const docsAImportar = data
+        .map((item) => {
+          // Busca "Etiquetas (separadas por coma)", "Etiquetas", "etiquetas_str", etc.
+          const tagsRaw = getFieldValue(
+            item,
+            'Etiquetas (separadas por coma)',
+            'Etiquetas',
+            'etiquetas',
+            'etiquetas_str'
+          )
+          const tagsArray = tagsRaw ? tagsRaw.split(',').map((t) => t.trim().toUpperCase()) : []
+
+          return {
+            nombre_docu: getFieldValue(item, 'Nombre del Documento', 'nombre_docu', 'nombre'),
+            producto_codigo: getFieldValue(item, 'Código Producto', 'producto_codigo', 'codigo'),
+            producto_nombre: getFieldValue(item, 'Producto', 'producto_nombre'),
+            laboratorio: getFieldValue(item, 'Laboratorio', 'laboratorio'),
+            proveedor_nombre: getFieldValue(item, 'Proveedor', 'proveedor_nombre'),
+            etiquetas: tagsArray,
+            etiquetas_str: tagsRaw // 👈 Mismo key que en excelColumns para que el Preview Modal lo muestre
+          }
+        })
+        .filter((item) => item.nombre_docu !== '')
+
+      if (docsAImportar.length === 0) {
+        alert('No se encontraron documentos válidos en el archivo.')
+        return
+      }
+
+      setExcelData(docsAImportar)
+      setExcelModalMode('import')
+      setShowExcelModal(true)
+    } catch (err) {
+      alert('Error al leer el archivo Excel/CSV')
+    } finally {
+      e.target.value = ''
     }
-    reader.readAsBinaryString(file)
   }
+  reader.readAsBinaryString(file)
+}
 
   /* ── Confirmar Importación al Backend ──────────────────────── */
   const handleConfirmImport = async (dataToSubmit) => {
