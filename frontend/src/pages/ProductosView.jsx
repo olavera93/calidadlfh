@@ -468,7 +468,9 @@ const handleConfirmBulkDelete = async () => {
         </select>
 
         {selectedItems.size > 0 && (
-    
+
+
+    <PuedeEditar>
         <button
           onClick={() => setShowModalBulkDelete(true)}
           className="bg-danger-50 hover:bg-danger-100 text-danger-600 border border-danger-200 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
@@ -476,6 +478,7 @@ const handleConfirmBulkDelete = async () => {
         >
           <Trash2 size={16} /> Eliminar ({selectedItems.size})
         </button>
+        </PuedeEditar>
       
     )}
 
