@@ -46,14 +46,10 @@ function AppRoutes() {
           </PublicRoute>
         }
       />
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <Layout><Dashboard /></Layout>
-          </ProtectedRoute>
-        }
-      />
+    <Route
+  path="/"
+  element={<Navigate to="/temperaturas" replace />}
+/>
       <Route
         path="/temperaturas"
         element={

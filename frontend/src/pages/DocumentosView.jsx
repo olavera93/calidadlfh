@@ -479,10 +479,10 @@ const handleFileChange = (e) => {
           />
         </div>
 
-        <ProveedorSearchSelect
+<ProveedorSearchSelect
   options={proveedorOptions}
   value={proveedorFilter}
-  onChange={(id) => handleProveedorFilterChange(id)}
+  onChange={(id) => setProveedorFilter(id)}
   placeholder="Todos los Proveedores"
   clearable
   className="w-56"
