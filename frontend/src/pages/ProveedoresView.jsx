@@ -265,19 +265,32 @@ export default function ProveedoresView() {
 
   /* ── Guardar / Editar ────────────────────────────────────── */
   const handleSave = async (e) => {
-    e.preventDefault()
-    try {
-      if (editingProveedor) {
-        await api.put(`/proveedores/${editingProveedor.id}`, formData)
-      } else {
-        await api.post('/proveedores/', formData)
-      }
-      setShowModal(false)
-      fetchProveedores()
-    } catch (err) {
-      alert(err.response?.data?.detail || 'Error al guardar el proveedor')
+  e.preventDefault()
+  try {
+    const payload = {
+      ...formData,
+      telefono: formData.telefono?.trim() || null,
+      direccion: formData.direccion?.trim() || null,
+      correo: formData.correo?.trim() || null,
     }
+    if (editingProveedor) {
+      await api.put(`/proveedores/${editingProveedor.id}`, payload)
+    } else {
+      await api.post('/proveedores/', payload)
+    }
+    setShowModal(false)
+    fetchProveedores()
+  } catch (err) {
+    const detail = err.response?.data?.detail
+    let mensaje = 'Error al guardar el proveedor'
+    if (typeof detail === 'string') {
+      mensaje = detail
+    } else if (Array.isArray(detail)) {
+      mensaje = detail.map((d) => `${d.loc?.[d.loc.length - 1]}: ${d.msg}`).join('\n')
+    }
+    alert(mensaje)
   }
+}
 
   /* ── Handlers de Desactivación (Soft Delete) ─────────────── */
   const handleOpenDeleteModal = (prov) => {
