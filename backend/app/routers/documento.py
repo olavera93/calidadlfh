@@ -32,7 +32,7 @@ ALLOWED_MIME = {
     "application/vnd.ms-excel",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 }
-MAX_SIZE = 10 * 1024 * 1024  # 10 MB
+MAX_SIZE = 25 * 1024 * 1024  # 25 MB
 
 
 def guardar_archivo_fisico(
@@ -128,14 +128,14 @@ async def create_documento(
     etiquetas: Optional[str] = Form(None),
     archivo: UploadFile = File(...),
     db: Session = Depends(get_db),
-):
     _: Usuario = Depends(require_roles("admin", "visitador")),
+):
     if archivo.content_type not in ALLOWED_MIME:
         raise HTTPException(status_code=400, detail="Tipo de archivo no permitido")
 
     contenido = await archivo.read()
     if len(contenido) > MAX_SIZE:
-        raise HTTPException(status_code=400, detail="El archivo supera los 10MB")
+        raise HTTPException(status_code=400, detail=f"El archivo supera los {MAX_SIZE // (1024*1024)}MB")
 
     # Guardar en storage/documentos/productos o storage/documentos/proveedores manteniendo el nombre
     ruta_completa = guardar_archivo_fisico(
@@ -173,8 +173,8 @@ async def update_documento(
     etiquetas: Optional[str] = Form(None),
     archivo: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db),
-):
     _: Usuario = Depends(require_roles("admin", "visitador")),
+):
     doc = db.query(Documento).filter(Documento.id == documento_id).first()
     if not doc:
         raise HTTPException(
@@ -198,7 +198,7 @@ async def update_documento(
 
         contenido = await archivo.read()
         if len(contenido) > MAX_SIZE:
-            raise HTTPException(status_code=400, detail="El archivo supera los 10MB")
+            raise HTTPException(status_code=400, detail=f"El archivo supera los {MAX_SIZE // (1024*1024)}MB")
 
         # Borrar el archivo anterior del disco si existía
         if doc.ruta_archivo and os.path.exists(doc.ruta_archivo):
@@ -221,11 +221,13 @@ async def update_documento(
 
 
 @router.delete("/{documento_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_documento(documento_id: int, db: Session = Depends(get_db)):
+def delete_documento(
+    documento_id: int,
+    db: Session = Depends(get_db),
     _: Usuario = Depends(require_roles("admin", "visitador")),
+):
     doc = db.query(Documento).filter(Documento.id == documento_id).first()
     if not doc:
-        
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Documento no encontrado"
@@ -240,8 +242,11 @@ def delete_documento(documento_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/importar-json")
-def importar_documentos_json(documentos_data: List[dict], db: Session = Depends(get_db)):
+def importar_documentos_json(
+    documentos_data: List[dict],
+    db: Session = Depends(get_db),
     _: Usuario = Depends(require_roles("admin", "visitador")),
+):
     creados = 0
     actualizados = 0
 

@@ -37,6 +37,9 @@ export default function ProveedoresView() {
   const [provToDelete, setProvToDelete] = useState(null)
   const [deleting, setDeleting] = useState(false)
 
+
+
+
   // Modal Excel State (Importar / Exportar)
   const [showExcelModal, setShowExcelModal] = useState(false)
   const [excelModalMode, setExcelModalMode] = useState('export') // 'import' | 'export'
