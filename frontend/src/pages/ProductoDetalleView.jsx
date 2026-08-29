@@ -16,7 +16,8 @@ import {
   Paperclip,
   ExternalLink,
   Edit2,
-  Trash2
+  Trash2,
+  Search
 } from 'lucide-react'
 import api from '../services/api'
 import { EmptyState } from '../components/ui/EmptyState'
@@ -76,6 +77,9 @@ export default function ProductoDetalleView() {
   // Estado para el modal de vista previa de archivo
   const [docPreview, setDocPreview] = useState(null) // { id, nombre, url }
 
+  /* ── Buscador de Documentos ───────────────────────────────── */
+  const [busquedaDoc, setBusquedaDoc] = useState('')
+
   // Cambia a `true` si prefieres que el clic abra directo en pestaña nueva
   const ABRIR_EN_PESTANA_NUEVA = false
 
@@ -133,6 +137,20 @@ export default function ProductoDetalleView() {
       return String(prodId) === String(productoId)
     })
   }, [documentos, productoId])
+
+  /* ── Documentos filtrados por el buscador (nombre o etiquetas) ────── */
+  const documentosFiltrados = useMemo(() => {
+    const q = busquedaDoc.trim().toLowerCase()
+    if (!q) return documentosDelProducto
+
+    return documentosDelProducto.filter((doc) => {
+      const coincideNombre = (doc.nombre_docu || '').toLowerCase().includes(q)
+      const coincideEtiqueta = Array.isArray(doc.etiquetas)
+        ? doc.etiquetas.some((tag) => String(tag).toLowerCase().includes(q))
+        : false
+      return coincideNombre || coincideEtiqueta
+    })
+  }, [documentosDelProducto, busquedaDoc])
 
   /* ── Manejo de Etiquetas ── */
   const handleAddTag = (e) => {
@@ -429,7 +447,7 @@ export default function ProductoDetalleView() {
                 <FileText size={16} />
               </span>
               <h3 className="text-sm font-semibold text-surface-800">
-                Documentos asignados ({documentosDelProducto.length})
+                Documentos asignados ({documentosFiltrados.length})
               </h3>
             </div>
 
@@ -441,11 +459,37 @@ export default function ProductoDetalleView() {
             </button>
           </div>
 
+          {/* BUSCADOR DE DOCUMENTOS */}
+          {documentosDelProducto.length > 0 && (
+            <div className="relative mb-3">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
+              <input
+                type="text"
+                value={busquedaDoc}
+                onChange={(e) => setBusquedaDoc(e.target.value)}
+                placeholder="Buscar por nombre o etiqueta..."
+                className="input-base w-full pl-9 pr-8 text-xs"
+              />
+              {busquedaDoc && (
+                <button
+                  type="button"
+                  onClick={() => setBusquedaDoc('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-600 transition-colors"
+                  title="Limpiar búsqueda"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          )}
+
           {documentosDelProducto.length === 0 ? (
             <EmptyState message="Este producto no tiene documentos asignados." />
+          ) : documentosFiltrados.length === 0 ? (
+            <EmptyState message="Ningún documento coincide con la búsqueda." />
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {documentosDelProducto.map((doc) => {
+            <div className="grid grid-cols-1 gap-3">
+              {documentosFiltrados.map((doc) => {
                 const fileMeta = getFileMeta(doc.nombre_docu)
                 return (
                   <div
@@ -465,9 +509,10 @@ export default function ProductoDetalleView() {
                         </span>
                         <span className="min-w-0">
                           <span
-                            className={`block text-xs font-semibold truncate ${
+                            className={`block text-xs font-semibold break-words ${
                               doc.ruta_archivo ? 'text-surface-800 group-hover:text-brand-600' : 'text-surface-500'
                             }`}
+                            title={doc.nombre_docu}
                           >
                             {doc.nombre_docu}
                           </span>

@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Building2, Package, FileText, Tag, Mail, Phone, MapPin,
   Plus, X, Download, Paperclip, ExternalLink, Edit2, Trash2, Users,
-  Eye, Briefcase, Cake, StickyNote
+  Eye, Briefcase, Cake, StickyNote, Search
 } from 'lucide-react'
 import api from '../services/api'
 import { EmptyState } from '../components/ui/EmptyState'
@@ -82,9 +82,12 @@ export default function ProveedorDetalleView() {
   /* ── Estado para el Modal de Vista Previa de Archivo ─────── */
   const [docPreview, setDocPreview] = useState(null) // { id, nombre, url }
 
+  /* ── Buscador de Documentos ───────────────────────────────── */
+  const [busquedaDoc, setBusquedaDoc] = useState('')
+
   /* ── Paginación para Documentos ───────────────────────────── */
   const [currentPageDoc, setCurrentPageDoc] = useState(1)
-  const [itemsPerPageDoc, setItemsPerPageDoc] = useState(5)
+  const [itemsPerPageDoc, setItemsPerPageDoc] = useState(10)
 
   /* ── Cargar datos ─────────────────────────────────────────── */
   const fetchData = useCallback(async () => {
@@ -132,18 +135,38 @@ export default function ProveedorDetalleView() {
     })
   }, [documentos, proveedorId])
 
-  // Ajustar página si cambia el tamaño de la lista de documentos
+  /* ── Documentos filtrados por el buscador (nombre o etiquetas) ────── */
+  const documentosFiltrados = useMemo(() => {
+    const q = busquedaDoc.trim().toLowerCase()
+    if (!q) return documentosDelProveedor
+
+    return documentosDelProveedor.filter((doc) => {
+      const coincideNombre = (doc.nombre_docu || '').toLowerCase().includes(q)
+      const coincideEtiqueta = Array.isArray(doc.etiquetas)
+        ? doc.etiquetas.some((tag) => String(tag).toLowerCase().includes(q))
+        : false
+      const coincideProducto = (doc.producto?.nombre || '').toLowerCase().includes(q)
+      return coincideNombre || coincideEtiqueta || coincideProducto
+    })
+  }, [documentosDelProveedor, busquedaDoc])
+
+  // Ajustar página si cambia el tamaño de la lista de documentos filtrados
   useEffect(() => {
-    const maxPage = Math.max(1, Math.ceil(documentosDelProveedor.length / itemsPerPageDoc))
+    const maxPage = Math.max(1, Math.ceil(documentosFiltrados.length / itemsPerPageDoc))
     if (currentPageDoc > maxPage) {
       setCurrentPageDoc(maxPage)
     }
-  }, [documentosDelProveedor.length, itemsPerPageDoc, currentPageDoc])
+  }, [documentosFiltrados.length, itemsPerPageDoc, currentPageDoc])
+
+  // Volver a la página 1 cada vez que cambia el término de búsqueda
+  useEffect(() => {
+    setCurrentPageDoc(1)
+  }, [busquedaDoc])
 
   const paginatedDocumentos = useMemo(() => {
     const startIndex = (currentPageDoc - 1) * itemsPerPageDoc
-    return documentosDelProveedor.slice(startIndex, startIndex + itemsPerPageDoc)
-  }, [documentosDelProveedor, currentPageDoc, itemsPerPageDoc])
+    return documentosFiltrados.slice(startIndex, startIndex + itemsPerPageDoc)
+  }, [documentosFiltrados, currentPageDoc, itemsPerPageDoc])
 
   /* ── Manejo de Etiquetas ─────────────────────────────────── */
   const handleAddTag = (e) => {
@@ -317,84 +340,85 @@ const handleFileChange = (e) => {
 
   return (
     <div className="space-y-5">
-      {/* ENCABEZADO */}
-      <div className="relative overflow-hidden rounded-2xl border border-surface-100 bg-white p-6 shadow-sm">
-        <div className="absolute inset-x-0 top-0 h-1.5 bg-[#22D3EE]" />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:items-stretch">
+        {/* ── COLUMNA IZQUIERDA: Info del proveedor + Contactos ───────── */}
+        <div className="flex flex-col gap-5 min-w-0">
+          {/* INFO DEL PROVEEDOR */}
+          <div className="relative overflow-hidden rounded-2xl border border-surface-100 bg-white p-6 shadow-sm">
+            <div className="absolute inset-x-0 top-0 h-1.5 bg-[#22D3EE]" />
 
-        <div className="flex items-start gap-4">
-          <button
-            onClick={() => navigate('/proveedores')}
-            className="p-2 rounded-xl text-surface-500 hover:text-surface-800 hover:bg-surface-100 transition-colors mt-0.5"
-            title="Volver a proveedores"
-          >
-            <ArrowLeft size={18} />
-          </button>
-
-          <div className="hidden sm:flex h-12 w-12 shrink-0 rounded-2xl bg-[#0B1220] items-center justify-center shadow-sm">
-            <Building2 size={22} className="text-white" />
-          </div>
-
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-3">
-              <h2 className="text-xl font-bold text-surface-800">{proveedor.nombre}</h2>
-
+            <div className="flex items-start gap-4">
               <button
-                onClick={() => navigate(`/productos?proveedor_id=${proveedorId}`)}
-                className="shrink-0 bg-[#0B1220] hover:bg-[#16233A] text-[#22D3EE] text-xs font-medium px-3 py-2 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
+                onClick={() => navigate('/proveedores')}
+                className="p-2 rounded-xl text-surface-500 hover:text-surface-800 hover:bg-surface-100 transition-colors mt-0.5"
+                title="Volver a proveedores"
               >
-                <Package size={14} /> Ver productos
+                <ArrowLeft size={18} />
               </button>
-            </div>
 
-            {/* Metadatos con título propio, no simples etiquetas */}
-            <div className="mt-3 flex flex-wrap items-start gap-x-6 gap-y-2.5">
-              {proveedor.identificacion && (
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-[10px] font-semibold text-surface-400 uppercase tracking-wide">
-                    NIT / ID
-                  </span>
-                  <span className="text-xs font-mono text-surface-700">{proveedor.identificacion}</span>
-                </div>
-              )}
+              <div className="hidden sm:flex h-12 w-12 shrink-0 rounded-2xl bg-[#0B1220] items-center justify-center shadow-sm">
+                <Building2 size={22} className="text-white" />
+              </div>
 
-              {proveedor.correo && (
-                <div className="flex flex-col gap-0.5 border-l border-surface-200 pl-6">
-                  <span className="flex items-center gap-1 text-[10px] font-semibold text-surface-400 uppercase tracking-wide">
-                    <Mail size={11} className="text-[#22D3EE]" />
-                    Correo
-                  </span>
-                  <span className="text-xs text-surface-700">{proveedor.correo}</span>
-                </div>
-              )}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <h2 className="text-xl font-bold text-surface-800 break-words">{proveedor.nombre}</h2>
 
-              {proveedor.telefono && (
-                <div className="flex flex-col gap-0.5 border-l border-surface-200 pl-6">
-                  <span className="flex items-center gap-1 text-[10px] font-semibold text-surface-400 uppercase tracking-wide">
-                    <Phone size={11} className="text-[#22D3EE]" />
-                    Teléfono
-                  </span>
-                  <span className="text-xs text-surface-700">{proveedor.telefono}</span>
+                  <button
+                    onClick={() => navigate(`/productos?proveedor_id=${proveedorId}`)}
+                    className="shrink-0 bg-[#0B1220] hover:bg-[#16233A] text-[#22D3EE] text-xs font-medium px-3 py-2 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
+                  >
+                    <Package size={14} /> Ver productos
+                  </button>
                 </div>
-              )}
 
-              {proveedor.direccion && (
-                <div className="flex flex-col gap-0.5 border-l border-surface-200 pl-6">
-                  <span className="flex items-center gap-1 text-[10px] font-semibold text-surface-400 uppercase tracking-wide">
-                    <MapPin size={11} className="text-[#22D3EE]" />
-                    Dirección
-                  </span>
-                  <span className="text-xs text-surface-700">{proveedor.direccion}</span>
+                {/* Metadatos con título propio, no simples etiquetas */}
+                <div className="mt-3 flex flex-wrap items-start gap-x-6 gap-y-2.5">
+                  {proveedor.identificacion && (
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-[10px] font-semibold text-surface-400 uppercase tracking-wide">
+                        NIT / ID
+                      </span>
+                      <span className="text-xs font-mono text-surface-700">{proveedor.identificacion}</span>
+                    </div>
+                  )}
+
+                  {proveedor.correo && (
+                    <div className="flex flex-col gap-0.5 border-l border-surface-200 pl-6">
+                      <span className="flex items-center gap-1 text-[10px] font-semibold text-surface-400 uppercase tracking-wide">
+                        <Mail size={11} className="text-[#22D3EE]" />
+                        Correo
+                      </span>
+                      <span className="text-xs text-surface-700">{proveedor.correo}</span>
+                    </div>
+                  )}
+
+                  {proveedor.telefono && (
+                    <div className="flex flex-col gap-0.5 border-l border-surface-200 pl-6">
+                      <span className="flex items-center gap-1 text-[10px] font-semibold text-surface-400 uppercase tracking-wide">
+                        <Phone size={11} className="text-[#22D3EE]" />
+                        Teléfono
+                      </span>
+                      <span className="text-xs text-surface-700">{proveedor.telefono}</span>
+                    </div>
+                  )}
+
+                  {proveedor.direccion && (
+                    <div className="flex flex-col gap-0.5 border-l border-surface-200 pl-6">
+                      <span className="flex items-center gap-1 text-[10px] font-semibold text-surface-400 uppercase tracking-wide">
+                        <MapPin size={11} className="text-[#22D3EE]" />
+                        Dirección
+                      </span>
+                      <span className="text-xs text-surface-700">{proveedor.direccion}</span>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
-        {/* CONTACTOS (nombre + acceso a detalle de cada uno) */}
-        <div className="bg-white rounded-2xl border border-surface-100 shadow-sm p-5 flex flex-col justify-between min-h-[400px]">
-          <div>
+          {/* CONTACTOS (nombre + acceso a detalle de cada uno) */}
+          <div className="bg-white rounded-2xl border border-surface-100 shadow-sm p-5 flex flex-col flex-1 min-h-[260px]">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <span className="flex items-center justify-center h-8 w-8 rounded-xl bg-[#0B1220] text-[#22D3EE]">
@@ -404,7 +428,6 @@ const handleFileChange = (e) => {
                   Contactos ({contactos.length})
                 </h3>
               </div>
-
 
               <PuedeEditar>
               <button
@@ -419,7 +442,7 @@ const handleFileChange = (e) => {
             {contactos.length === 0 ? (
               <EmptyState message="Este proveedor no tiene contactos registrados." />
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-2 overflow-y-auto">
                 {contactos.map((contacto) => (
                   <div
                     key={contacto.id}
@@ -445,31 +468,58 @@ const handleFileChange = (e) => {
           </div>
         </div>
 
-        {/* DOCUMENTOS ASIGNADOS */}
-        <div className="bg-white rounded-2xl border border-surface-100 shadow-sm p-5 flex flex-col justify-between min-h-[400px]">
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <span className="flex items-center justify-center h-8 w-8 rounded-xl bg-[#0B1220] text-[#22D3EE]">
-                  <FileText size={16} />
-                </span>
-                <h3 className="text-sm font-semibold text-surface-800">
-                  Documentos ({documentosDelProveedor.length})
-                </h3>
-              </div>
-
-              <button
-                onClick={handleOpenCreateModal}
-                className="bg-[#0B1220] hover:bg-[#16233A] text-[#22D3EE] text-xs font-medium px-3 py-2 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
-              >
-                <Plus size={14} /> Nuevo Documento
-              </button>
+        {/* ── COLUMNA DERECHA: Documentos, a toda la altura ───────────── */}
+        <div className="bg-white rounded-2xl border border-surface-100 shadow-sm p-5 flex flex-col lg:h-full min-h-[500px]">
+          <div className="flex items-center justify-between mb-4 shrink-0">
+            <div className="flex items-center gap-2">
+              <span className="flex items-center justify-center h-8 w-8 rounded-xl bg-[#0B1220] text-[#22D3EE]">
+                <FileText size={16} />
+              </span>
+              <h3 className="text-sm font-semibold text-surface-800">
+                Documentos ({documentosFiltrados.length})
+              </h3>
             </div>
 
+            <button
+              onClick={handleOpenCreateModal}
+              className="bg-[#0B1220] hover:bg-[#16233A] text-[#22D3EE] text-xs font-medium px-3 py-2 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
+            >
+              <Plus size={14} /> Nuevo Documento
+            </button>
+          </div>
+
+          {/* BUSCADOR DE DOCUMENTOS */}
+          {documentosDelProveedor.length > 0 && (
+            <div className="relative mb-3 shrink-0">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
+              <input
+                type="text"
+                value={busquedaDoc}
+                onChange={(e) => setBusquedaDoc(e.target.value)}
+                placeholder="Buscar por nombre, etiqueta o producto..."
+                className="input-base w-full pl-9 pr-8 text-xs"
+              />
+              {busquedaDoc && (
+                <button
+                  type="button"
+                  onClick={() => setBusquedaDoc('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-600 transition-colors"
+                  title="Limpiar búsqueda"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* LISTA DE DOCUMENTOS: ocupa el espacio restante, con scroll interno si no caben */}
+          <div className="flex-1 min-h-0 overflow-y-auto pr-1 -mr-1">
             {documentosDelProveedor.length === 0 ? (
               <EmptyState message="Este proveedor no tiene documentos asignados." />
+            ) : documentosFiltrados.length === 0 ? (
+              <EmptyState message="Ningún documento coincide con la búsqueda." />
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3">
                 {paginatedDocumentos.map((doc) => {
                   const fileMeta = getFileMeta(doc.nombre_docu)
                   return (
@@ -490,9 +540,10 @@ const handleFileChange = (e) => {
                           </span>
                           <span className="min-w-0">
                             <span
-                              className={`block text-xs font-semibold truncate ${
+                              className={`block text-xs font-semibold break-words ${
                                 doc.ruta_archivo ? 'text-surface-800 group-hover:text-brand-600' : 'text-surface-500'
                               }`}
+                              title={doc.nombre_docu}
                             >
                               {doc.nombre_docu}
                             </span>
@@ -548,11 +599,11 @@ const handleFileChange = (e) => {
             )}
           </div>
 
-          {documentosDelProveedor.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-surface-100">
+          {documentosFiltrados.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-surface-100 shrink-0">
               <Paginator
                 currentPage={currentPageDoc}
-                totalItems={documentosDelProveedor.length}
+                totalItems={documentosFiltrados.length}
                 itemsPerPage={itemsPerPageDoc}
                 onPageChange={setCurrentPageDoc}
                 onItemsPerPageChange={setItemsPerPageDoc}
