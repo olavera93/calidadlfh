@@ -23,7 +23,7 @@ import PuedeEditar from '../components/PuedeEditar'
  *  - Modal para previsualizar el archivo de un documento antes de descargarlo
  */
 
-const MAX_FILE_SIZE_MB = 1000
+const MAX_FILE_SIZE_MB = 10000
 const ACCEPTED_EXTENSIONS = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx'
 const IMAGE_EXTENSION_REGEX = /\.(jpg|jpeg|png|gif|webp)$/i
 const OFFICE_EXTENSION_REGEX = /\.(doc|docx|xls|xlsx|ppt|pptx)$/i

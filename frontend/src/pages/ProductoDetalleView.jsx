@@ -22,7 +22,7 @@ import {
 import api from '../services/api'
 import { EmptyState } from '../components/ui/EmptyState'
 
-const MAX_FILE_SIZE_MB = 10
+const MAX_FILE_SIZE_MB = 10000
 const ACCEPTED_EXTENSIONS = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx'
 const IMAGE_EXTENSION_REGEX = /\.(jpg|jpeg|png|gif|webp|bmp)$/i
 const OFFICE_EXTENSION_REGEX = /\.(doc|docx|xls|xlsx|ppt|pptx)$/i
