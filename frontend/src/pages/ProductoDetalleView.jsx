@@ -496,59 +496,58 @@ export default function ProductoDetalleView() {
                     key={doc.id}
                     className="group relative rounded-xl border border-surface-100 bg-surface-50/70 hover:bg-white hover:border-brand-200 hover:shadow-sm transition-all p-3.5"
                   >
-                    <div className="flex items-start justify-between gap-2">
+                    {/* Acciones flotantes arriba a la derecha, no interfieren con el ancho del nombre */}
+                    <div className="absolute top-2.5 right-2.5 flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
-                        type="button"
-                        onClick={() => handleOpenPreview(doc)}
-                        disabled={!doc.ruta_archivo}
-                        className="flex items-start gap-3 min-w-0 text-left flex-1 disabled:cursor-not-allowed"
-                        title={doc.ruta_archivo ? 'Ver archivo' : 'Sin archivo adjunto'}
+                        onClick={() => handleOpenModal(doc)}
+                        className="p-1.5 text-surface-400 hover:text-brand-500 hover:bg-white rounded-lg transition-colors"
+                        title="Editar documento"
                       >
-                        <span className={`shrink-0 h-10 w-10 rounded-lg border flex items-center justify-center text-[10px] font-bold ${fileMeta.classes}`}>
-                          {fileMeta.label}
-                        </span>
-                        <span className="min-w-0">
-                          <span
-                            className={`block text-xs font-semibold break-words ${
-                              doc.ruta_archivo ? 'text-surface-800 group-hover:text-brand-600' : 'text-surface-500'
-                            }`}
-                            title={doc.nombre_docu}
-                          >
-                            {doc.nombre_docu}
-                          </span>
-                          {Array.isArray(doc.etiquetas) && doc.etiquetas.length > 0 && (
-                            <span className="mt-1.5 flex flex-wrap gap-1">
-                              {doc.etiquetas.map((tag, idx) => (
-                                <span
-                                  key={idx}
-                                  className="bg-brand-50 text-brand-700 text-[10px] px-1.5 py-0.5 rounded-md flex items-center gap-1 font-medium border border-brand-100"
-                                >
-                                  <Tag size={9} />
-                                  {tag}
-                                </span>
-                              ))}
-                            </span>
-                          )}
-                        </span>
+                        <Edit2 size={13} />
                       </button>
-
-                      <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => handleOpenModal(doc)}
-                          className="p-1.5 text-surface-400 hover:text-brand-500 hover:bg-white rounded-lg transition-colors"
-                          title="Editar documento"
-                        >
-                          <Edit2 size={13} />
-                        </button>
-                        <button
-                          onClick={() => handleOpenDeleteModal(doc)}
-                          className="p-1.5 text-surface-400 hover:text-danger-500 hover:bg-white rounded-lg transition-colors"
-                          title="Eliminar documento"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => handleOpenDeleteModal(doc)}
+                        className="p-1.5 text-surface-400 hover:text-danger-500 hover:bg-white rounded-lg transition-colors"
+                        title="Eliminar documento"
+                      >
+                        <Trash2 size={13} />
+                      </button>
                     </div>
+
+                    {/* Icono y nombre en la misma fila; el nombre continúa debajo si es largo */}
+                    <button
+                      type="button"
+                      onClick={() => handleOpenPreview(doc)}
+                      disabled={!doc.ruta_archivo}
+                      className="flex items-start gap-3 w-full text-left pr-14 disabled:cursor-not-allowed"
+                      title={doc.ruta_archivo ? 'Ver archivo' : 'Sin archivo adjunto'}
+                    >
+                      <span className={`shrink-0 h-10 w-10 rounded-lg border flex items-center justify-center text-[10px] font-bold ${fileMeta.classes}`}>
+                        {fileMeta.label}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span
+                          className={`block text-xs font-semibold break-words whitespace-normal ${
+                            doc.ruta_archivo ? 'text-surface-800 group-hover:text-brand-600' : 'text-surface-500'
+                          }`}
+                        >
+                          {doc.nombre_docu}
+                        </span>
+                        {Array.isArray(doc.etiquetas) && doc.etiquetas.length > 0 && (
+                          <span className="mt-1.5 flex flex-wrap gap-1">
+                            {doc.etiquetas.map((tag, idx) => (
+                              <span
+                                key={idx}
+                                className="bg-brand-50 text-brand-700 text-[10px] px-1.5 py-0.5 rounded-md flex items-center gap-1 font-medium border border-brand-100"
+                              >
+                                <Tag size={9} />
+                                {tag}
+                              </span>
+                            ))}
+                          </span>
+                        )}
+                      </span>
+                    </button>
                   </div>
                 )
               })}
