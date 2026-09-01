@@ -25,12 +25,10 @@ export default function ProductosView() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  // Se inicializa con lo que venga en la URL (ej. ?proveedor_id=5 al llegar
-  // desde el botón "Ver productos" en el detalle de un Proveedor)
   const [proveedorFilter, setProveedorFilter] = useState(searchParams.get('proveedor_id') || '')
   const [estadoFilter, setEstadoFilter] = useState('')
 
-  // Selección (Map<id, producto> para que sobreviva el cambio de página) y Paginación
+  // Selección y Paginación
   const [selectedItems, setSelectedItems] = useState(new Map())
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(10)
@@ -47,10 +45,8 @@ export default function ProductosView() {
 
   // Modal Excel State
   const [showExcelModal, setShowExcelModal] = useState(false)
-  const [excelModalMode, setExcelModalMode] = useState('export') // 'import' | 'export'
+  const [excelModalMode, setExcelModalMode] = useState('export')
   const [excelData, setExcelData] = useState([])
-  // Lista completa de productos existentes (todos, no solo la página actual) para que el
-  // modal de importación pueda detectar correctamente duplicados por código
   const [allProductosForImport, setAllProductosForImport] = useState([])
 
   // Columnas para la previsualización del mini-excel y generación de plantillas
@@ -59,6 +55,7 @@ export default function ProductosView() {
     { key: 'nombre', label: 'Nombre del Producto' },
     { key: 'laboratorio', label: 'Laboratorio' },
     { key: 'registro_sanitario', label: 'Registro Sanitario' },
+    { key: 'registro_estado', label: 'Estado del Registro' },
     { key: 'estado', label: 'Estado' },
     { key: 'proveedor_identificacion', label: 'NIT / ID Proveedor' },
     { key: 'proveedor_nombre', label: 'Nombre Proveedor' }
@@ -66,24 +63,25 @@ export default function ProductosView() {
 
   const navigate = useNavigate()
 
-  // Formulario State
+  // Formulario State con el nuevo campo registro_estado
   const [formProducto, setFormProducto] = useState({
     codigo: '',
     nombre: '',
     laboratorio: '',
     registro_sanitario: '',
+    registro_estado: 'activo',
     estado: 'ACTIVO',
     proveedor_id: ''
   })
 
-  /* ── Cargar Proveedores (una sola vez, lista corta para el combobox) ── */
+  /* ── Cargar Proveedores ── */
   useEffect(() => {
     api.get('/proveedores')
       .then((res) => setProveedores(res.data))
       .catch((err) => setError(err.response?.data?.detail || 'Error al cargar proveedores'))
   }, [])
 
-  /* ── Opciones de proveedor para el combobox con búsqueda (filtro y modal) ── */
+  /* ── Opciones de proveedor ── */
   const proveedorOptions = useMemo(
     () => proveedores.map((p) => ({
       id: p.id,
@@ -93,20 +91,19 @@ export default function ProductosView() {
     [proveedores]
   )
 
-  /* ── Debounce de la búsqueda: espera 350ms tras dejar de teclear ──── */
+  /* ── Debounce de la búsqueda ──── */
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 350)
     return () => clearTimeout(timer)
   }, [search])
 
-  /* ── Sincroniza el filtro con la URL (ej. al llegar desde el botón
-     "Ver productos de este proveedor" en el detalle de un Proveedor) ── */
+  /* ── Sincroniza el filtro con la URL ── */
   useEffect(() => {
     const proveedorIdUrl = searchParams.get('proveedor_id') || ''
     setProveedorFilter(proveedorIdUrl)
   }, [searchParams])
 
-  /* ── Cambiar el filtro también actualiza la URL ─── */
+  /* ── Cambiar el filtro de proveedor ─── */
   const handleProveedorFilterChange = (value) => {
     setProveedorFilter(value)
     setSearchParams((prev) => {
@@ -120,12 +117,12 @@ export default function ProductosView() {
     })
   }
 
-  /* ── Volver a página 1 cuando cambian filtros/búsqueda/tamaño ─────── */
+  /* ── Volver a página 1 cuando cambian filtros ─────── */
   useEffect(() => {
     setCurrentPage(1)
   }, [debouncedSearch, proveedorFilter, estadoFilter, itemsPerPage])
 
-  /* ── Cargar Productos de la API (server-side pagination + search) ─── */
+  /* ── Cargar Productos de la API ─── */
   const fetchData = useCallback(async () => {
     setLoading(true)
     setError('')
@@ -140,25 +137,19 @@ export default function ProductosView() {
         }
       })
 
-      // 1. Si el backend devuelve la estructura paginada { items, total }
       if (res.data && Array.isArray(res.data.items)) {
         setProductos(res.data.items)
         setTotalItems(res.data.total ?? res.data.items.length)
-      } 
-      // 2. Si por alguna razón el backend devuelve el array directo [...]
-      else if (Array.isArray(res.data)) {
+      } else if (Array.isArray(res.data)) {
         setProductos(res.data)
         setTotalItems(res.data.length)
-      } 
-      // 3. Fallback en caso de un formato inesperado
-      else {
+      } else {
         setProductos([])
         setTotalItems(0)
       }
-
     } catch (err) {
       setError(err.response?.data?.detail || 'Error al cargar la información')
-      setProductos([]) // Limpiamos para evitar inconsistencias
+      setProductos([])
     } finally {
       setLoading(false)
     }
@@ -168,7 +159,7 @@ export default function ProductosView() {
     fetchData()
   }, [fetchData])
 
-  /* ── Selección (persiste entre páginas gracias al Map) ───────────── */
+  /* ── Selección ───────────── */
   const toggleSelectOne = (producto) => {
     setSelectedItems((prev) => {
       const next = new Map(prev)
@@ -202,8 +193,6 @@ export default function ProductosView() {
     if (selectedItems.size > 0) {
       productosAExportar = Array.from(selectedItems.values())
     } else {
-      // Sin selección: traer TODOS los productos que coinciden con el filtro/búsqueda actual,
-      // no solo los de la página visible.
       setLoading(true)
       try {
         const res = await api.get('/productos', {
@@ -233,6 +222,7 @@ export default function ProductosView() {
       nombre: p.nombre || '',
       laboratorio: p.laboratorio || '',
       registro_sanitario: p.registro_sanitario || '',
+      registro_estado: p.registro_estado || 'activo',
       estado: p.estado || 'ACTIVO',
       proveedor_identificacion: p.proveedor?.identificacion || '',
       proveedor_nombre: p.proveedor?.nombre || ''
@@ -250,6 +240,7 @@ export default function ProductosView() {
       'Nombre del Producto': p.nombre,
       'Laboratorio': p.laboratorio,
       'Registro Sanitario': p.registro_sanitario,
+      'Estado del Registro': p.registro_estado,
       'Estado': p.estado,
       'NIT / ID Proveedor': p.proveedor_identificacion,
       'Nombre Proveedor': p.proveedor_nombre
@@ -288,6 +279,7 @@ export default function ProductosView() {
             nombre: String(item['Nombre del Producto'] || item['nombre'] || item['Producto'] || item['Nombre'] || '').trim(),
             laboratorio: String(item['Laboratorio'] || item['laboratorio'] || '').trim() || null,
             registro_sanitario: String(item['Registro Sanitario'] || item['registro_sanitario'] || item['Registro'] || '').trim() || null,
+            registro_estado: String(item['Estado del Registro'] || item['registro_estado'] || 'activo').trim().toLowerCase(),
             estado: String(item['Estado'] || item['estado'] || 'ACTIVO').trim().toUpperCase(),
             proveedor_identificacion: String(
               item['NIT / ID Proveedor'] || item['proveedor_identificacion'] || item['NIT Proveedor'] || item['NIT'] || ''
@@ -302,8 +294,6 @@ export default function ProductosView() {
           return
         }
 
-        // Traer TODOS los productos existentes (no solo la página visible) para que el
-        // modal pueda comparar por código y marcar correctamente nuevos vs. actualizaciones
         try {
           const res = await api.get('/productos', { params: { skip: 0, limit: 100000 } })
           setAllProductosForImport(res.data.items)
@@ -386,6 +376,7 @@ export default function ProductosView() {
         nombre: prod.nombre || '',
         laboratorio: prod.laboratorio || '',
         registro_sanitario: prod.registro_sanitario || '',
+        registro_estado: prod.registro_estado || 'activo',
         estado: prod.estado || 'ACTIVO',
         proveedor_id: prod.proveedor_id || ''
       })
@@ -396,35 +387,36 @@ export default function ProductosView() {
         nombre: '',
         laboratorio: '',
         registro_sanitario: '',
+        registro_estado: 'activo',
         estado: 'ACTIVO',
         proveedor_id: proveedores[0]?.id || ''
       })
     }
     setShowModalProducto(true)
   }
-// ── Estado para Modal de Eliminación Masiva ─────────────────
-const [showModalBulkDelete, setShowModalBulkDelete] = useState(false)
-const [deletingBulk, setDeletingBulk] = useState(false)
 
-// ── Handler para Eliminación Masiva ────────────────────────
-const handleConfirmBulkDelete = async () => {
-  const idsToDelete = Array.from(selectedItems.keys())
-  if (idsToDelete.length === 0) return
+  // ── Estado para Modal de Eliminación Masiva ─────────────────
+  const [showModalBulkDelete, setShowModalBulkDelete] = useState(false)
+  const [deletingBulk, setDeletingBulk] = useState(false)
 
-  setDeletingBulk(true)
-  try {
-    await api.post('/productos/eliminar-masivo', { ids: idsToDelete })
-    clearSelection()
-    setShowModalBulkDelete(false)
-    fetchData()
-  } catch (err) {
-    alert(err.response?.data?.detail || 'Error al eliminar los productos seleccionados')
-  } finally {
-    setDeletingBulk(false)
-  
-  
+  // ── Handler para Eliminación Masiva ────────────────────────
+  const handleConfirmBulkDelete = async () => {
+    const idsToDelete = Array.from(selectedItems.keys())
+    if (idsToDelete.length === 0) return
+
+    setDeletingBulk(true)
+    try {
+      await api.post('/productos/eliminar-masivo', { ids: idsToDelete })
+      clearSelection()
+      setShowModalBulkDelete(false)
+      fetchData()
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Error al eliminar los productos seleccionados')
+    } finally {
+      setDeletingBulk(false)
+    }
   }
-}
+
   return (
     <div className="space-y-4">
       <input
@@ -468,19 +460,16 @@ const handleConfirmBulkDelete = async () => {
         </select>
 
         {selectedItems.size > 0 && (
-
-
-    <PuedeEditar>
-        <button
-          onClick={() => setShowModalBulkDelete(true)}
-          className="bg-danger-50 hover:bg-danger-100 text-danger-600 border border-danger-200 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
-          title="Eliminar elementos seleccionados"
-        >
-          <Trash2 size={16} /> Eliminar ({selectedItems.size})
-        </button>
-        </PuedeEditar>
-      
-    )}
+          <PuedeEditar>
+            <button
+              onClick={() => setShowModalBulkDelete(true)}
+              className="bg-danger-50 hover:bg-danger-100 text-danger-600 border border-danger-200 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
+              title="Eliminar elementos seleccionados"
+            >
+              <Trash2 size={16} /> Eliminar ({selectedItems.size})
+            </button>
+          </PuedeEditar>
+        )}
 
         <div className="flex items-center gap-2 shrink-0">
           <ExcelExportButton
@@ -491,16 +480,16 @@ const handleConfirmBulkDelete = async () => {
             isTemplate={true}
           />
 
-<PuedeEditar>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="border border-surface-200 hover:bg-surface-100 text-surface-700 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
-            title="Importar Excel/CSV"
-            disabled={loading}
-          >
-            <Upload size={16} /> Importar
-          </button>
-</PuedeEditar>
+          <PuedeEditar>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="border border-surface-200 hover:bg-surface-100 text-surface-700 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
+              title="Importar Excel/CSV"
+              disabled={loading}
+            >
+              <Upload size={16} /> Importar
+            </button>
+          </PuedeEditar>
 
           <button
             onClick={handleOpenExportModal}
@@ -529,7 +518,7 @@ const handleConfirmBulkDelete = async () => {
         </div>
       )}
 
-      {/* TABLA DE PRODUCTOS */}
+      {/* TABLA DE PRODUCTOS (SOLO CÓDIGO, PRODUCTO Y ACCIONES) */}
       <div className="card overflow-hidden">
         <div className="px-5 py-3.5 border-b border-surface-100 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-surface-700">
@@ -562,10 +551,6 @@ const handleConfirmBulkDelete = async () => {
                   </th>
                   <th className="text-left px-4 py-3">Código</th>
                   <th className="text-left px-4 py-3">Producto</th>
-                  <th className="text-left px-4 py-3">Laboratorio</th>
-                  <th className="text-left px-4 py-3">Reg. Sanitario</th>
-                  <th className="text-center px-4 py-3">Estado</th>
-                  <th className="text-left px-4 py-3">Proveedor</th>
                   <th className="text-right px-5 py-3">Acciones</th>
                 </tr>
               </thead>
@@ -595,42 +580,25 @@ const handleConfirmBulkDelete = async () => {
                         {p.nombre}
                       </button>
                     </td>
-                    <td className="px-4 py-2.5 text-surface-500">{p.laboratorio || '—'}</td>
-                    <td className="px-4 py-2.5 text-surface-500 font-mono text-xs">
-                      {p.registro_sanitario || '—'}
-                    </td>
-                    <td className="px-4 py-2.5 text-center">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
-                          p.estado === 'INACTIVO'
-                            ? 'bg-danger-50 text-danger-600 border border-danger-200'
-                            : 'bg-emerald-50 text-emerald-600 border border-emerald-200'
-                        }`}
-                      >
-                        {p.estado || 'ACTIVO'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 text-surface-600">{p.proveedor?.nombre || '—'}</td>
                     <td className="px-5 py-2.5 text-right whitespace-nowrap">
-
                       <PuedeEditar>
-                      <button
-                        onClick={() => openProductoModal(p)}
-                        className="p-1 hover:text-brand-500 transition-colors mr-2"
-                        title="Editar"
-                      >
-                        <Edit2 size={15} />
-                      </button>
+                        <button
+                          onClick={() => openProductoModal(p)}
+                          className="p-1 hover:text-brand-500 transition-colors mr-2"
+                          title="Editar"
+                        >
+                          <Edit2 size={15} />
+                        </button>
                       </PuedeEditar>
 
                       <PuedeEditar>
-                      <button
-                        onClick={() => handleOpenDeleteModal(p)}
-                        className="p-1 hover:text-danger-500 transition-colors"
-                        title="Eliminar"
-                      >
-                        <Trash2 size={15} />
-                      </button>
+                        <button
+                          onClick={() => handleOpenDeleteModal(p)}
+                          className="p-1 hover:text-danger-500 transition-colors"
+                          title="Eliminar"
+                        >
+                          <Trash2 size={15} />
+                        </button>
                       </PuedeEditar>
                     </td>
                   </tr>
@@ -649,7 +617,7 @@ const handleConfirmBulkDelete = async () => {
         />
       </div>
 
-      {/* MODAL PREVISUALIZACIÓN EXCEL (IMPORTAR / EXPORTAR) */}
+      {/* MODAL PREVISUALIZACIÓN EXCEL */}
       <ExcelPreviewModal
         isOpen={showExcelModal}
         onClose={() => setShowExcelModal(false)}
@@ -664,7 +632,7 @@ const handleConfirmBulkDelete = async () => {
         loading={loading}
       />
 
-      {/* MODAL PRODUCTO */}
+      {/* MODAL CREAR / EDITAR PRODUCTO */}
       {showModalProducto && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-modal border border-surface-100">
@@ -709,16 +677,32 @@ const handleConfirmBulkDelete = async () => {
                   className="input-base w-full mt-1"
                 />
               </div>
-              <div>
-                <label className="text-xs font-semibold text-surface-600">Registro Sanitario</label>
-                <input
-                  type="text"
-                  value={formProducto.registro_sanitario}
-                  onChange={(e) => setFormProducto({ ...formProducto, registro_sanitario: e.target.value })}
-                  placeholder="Ej. INVIMA 2020M-0001234"
-                  className="input-base w-full mt-1"
-                />
+
+              {/* GRID REGISTRO SANITARIO Y ESTADO DE REGISTRO JUNTOS */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-surface-600">Registro Sanitario</label>
+                  <input
+                    type="text"
+                    value={formProducto.registro_sanitario}
+                    onChange={(e) => setFormProducto({ ...formProducto, registro_sanitario: e.target.value })}
+                    placeholder="Ej. INVIMA..."
+                    className="input-base w-full mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-surface-600">Estado del Registro</label>
+                  <select
+                    value={formProducto.registro_estado}
+                    onChange={(e) => setFormProducto({ ...formProducto, registro_estado: e.target.value })}
+                    className="input-base w-full mt-1"
+                  >
+                    <option value="activo">Activo</option>
+                    <option value="inactivo">Inactivo</option>
+                  </select>
+                </div>
               </div>
+
               <div>
                 <label className="text-xs font-semibold text-surface-600">Estado</label>
                 <select
@@ -760,7 +744,7 @@ const handleConfirmBulkDelete = async () => {
         </div>
       )}
 
-{/* MODAL DE CONFIRMACIÓN DE ELIMINACIÓN MASIVA */}
+      {/* MODAL DE CONFIRMACIÓN DE ELIMINACIÓN MASIVA */}
       {showModalBulkDelete && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-modal border border-surface-100 space-y-4">
@@ -790,6 +774,7 @@ const handleConfirmBulkDelete = async () => {
           </div>
         </div>
       )}
+
       {/* MODAL DE CONFIRMACIÓN DE ELIMINACIÓN */}
       {showModalDelete && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -826,5 +811,4 @@ const handleConfirmBulkDelete = async () => {
       )}
     </div>
   )
-
 }

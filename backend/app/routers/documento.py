@@ -32,7 +32,7 @@ ALLOWED_MIME = {
     "application/vnd.ms-excel",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 }
-MAX_SIZE = 25 * 1024 * 1024  # 25 MB
+MAX_SIZE = 100 * 1024 * 1024
 
 
 def guardar_archivo_fisico(

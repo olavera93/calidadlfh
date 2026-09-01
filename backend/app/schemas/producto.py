@@ -13,6 +13,7 @@ class ProductoBase(BaseModel):
     proveedor_id: Optional[int] = None
     registro_sanitario: Optional[str] = None
     estado: Optional[str] = None
+    registro_estado: str = "activo"  # Valor por defecto "activo"
 
 
 class ProductoCreate(ProductoBase):
@@ -26,6 +27,7 @@ class ProductoUpdate(BaseModel):
     proveedor_id: Optional[int] = None
     registro_sanitario: Optional[str] = None
     estado: Optional[str] = None
+    registro_estado: Optional[str] = None
 
 
 # Versión "plana" del producto, SIN el campo proveedor.
@@ -56,11 +58,7 @@ class ProductoImportItem(BaseModel):
     proveedor_identificacion: Optional[str] = None
     registro_sanitario: Optional[str] = None
     estado: Optional[str] = None
-
-
-class ImportResponse(BaseModel):
-    creados: int
-    actualizados: int
+    registro_estado: Optional[str] = "activo"
 
 
 # ── Esquema para Paginación Real (server-side) ─────────────────────────
@@ -68,13 +66,16 @@ class ProductoPaginatedResponse(BaseModel):
     items: List[ProductoResponse]
     total: int
 
+
 class ImportResponse(BaseModel):
     creados: int
     actualizados: int
     nits_no_encontrados: List[str] = []
 
+
 class DeleteBulkSchema(BaseModel):
     ids: List[int]
+
 
 class DeleteBulkResponse(BaseModel):
     eliminados: int

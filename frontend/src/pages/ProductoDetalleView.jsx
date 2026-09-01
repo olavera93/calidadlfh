@@ -341,7 +341,7 @@ export default function ProductoDetalleView() {
               </span>
             </div>
 
-            {/* Metadatos con título propio, no simples etiquetas */}
+            {/* Metadatos con título propio y estado del registro sanitario */}
             <div className="mt-3 flex flex-wrap items-start gap-x-6 gap-y-2.5">
               <div className="flex flex-col gap-0.5">
                 <span className="flex items-center gap-1 text-[10px] font-semibold text-surface-400 uppercase tracking-wide">
@@ -367,7 +367,18 @@ export default function ProductoDetalleView() {
                     <ShieldCheck size={11} className="text-[#22D3EE]" />
                     Reg. Sanitario
                   </span>
-                  <span className="text-xs font-mono text-surface-700">{producto.registro_sanitario}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono text-surface-700">{producto.registro_sanitario}</span>
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+                        String(producto.registro_estado).toLowerCase() === 'inactivo'
+                          ? 'bg-danger-50 text-danger-600 border border-danger-200'
+                          : 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                      }`}
+                    >
+                      {producto.registro_estado ? producto.registro_estado.toUpperCase() : 'ACTIVO'}
+                    </span>
+                  </div>
                 </div>
               )}
             </div>

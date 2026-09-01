@@ -11,12 +11,13 @@ class Producto(Base):
     laboratorio = Column(String(100), nullable=True)
     registro_sanitario = Column(String(255), nullable=True)
     estado = Column(String(255), nullable=True)
+    
+    # Nuevo campo para el estado del registro ("activo" por defecto)
+    registro_estado = Column(String(20), default="activo", nullable=False)
 
     # Clave foránea que conecta con la tabla proveedor
     proveedor_id = Column(Integer, ForeignKey("proveedor.id"), nullable=True)
 
-
-    # Relación inversa con el modelo Proveedor
+    # Relaciones
     proveedor = relationship("Proveedor", back_populates="productos")
-
     devoluciones = relationship("Devolucion", back_populates="producto")

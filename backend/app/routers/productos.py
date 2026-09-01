@@ -38,6 +38,7 @@ def get_productos(
     search: Optional[str] = None,
     proveedor_id: Optional[int] = None,
     estado: Optional[str] = None,
+    registro_estado: Optional[str] = None,  # Nuevo filtro para registro_estado
     db: Session = Depends(get_db),
 ):
     query = db.query(Producto).outerjoin(Proveedor, Producto.proveedor_id == Proveedor.id)
@@ -59,6 +60,9 @@ def get_productos(
 
     if estado:
         query = query.filter(Producto.estado == estado)
+
+    if registro_estado:
+        query = query.filter(Producto.registro_estado == registro_estado)
 
     total = query.count()
 
@@ -194,6 +198,8 @@ def importar_productos_json(
                 existente.registro_sanitario = item.registro_sanitario
             if item.estado is not None:
                 existente.estado = item.estado
+            if item.registro_estado is not None:
+                existente.registro_estado = item.registro_estado
             if target_prov_id is not None:
                 existente.proveedor_id = target_prov_id
             actualizados += 1
@@ -204,6 +210,7 @@ def importar_productos_json(
                 laboratorio=item.laboratorio,
                 registro_sanitario=item.registro_sanitario,
                 estado=item.estado or "ACTIVO",
+                registro_estado=item.registro_estado or "activo",
                 proveedor_id=target_prov_id,
             )
             db.add(nuevo)
