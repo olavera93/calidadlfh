@@ -69,3 +69,10 @@ class RegistroOut(BaseModel):
     alerta: bool
 
     model_config = {"from_attributes": True}
+
+
+class ReporteTemperaturasRequest(BaseModel):
+    area_id: int
+    year_month: str  # formato "YYYY-MM"
+    temp_chart_base64: str
+    hum_chart_base64: Optional[str] = None

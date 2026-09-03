@@ -1,14 +1,22 @@
+from calendar import monthrange
 from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user, get_sedes_permitidas, require_admin
 from app.crud import temperatura as crud_temp
 from app.database import get_db
 from app.models.models import Area, RegistroTemperatura, Usuario
-from app.schemas.temperatura import RegistroCreate, RegistroOut, RegistroUpdate
+from app.schemas.temperatura import (
+    ReporteTemperaturasRequest,
+    RegistroCreate,
+    RegistroOut,
+    RegistroUpdate,
+)
+from app.services.pdf_temperaturas import generar_pdf_temperaturas
 
 router = APIRouter()
 
@@ -114,3 +122,68 @@ def delete_temperatura(
         )
     db.delete(registro)
     db.commit()
+
+
+@router.post("/temperaturas/reporte-mes")
+def reporte_temperaturas_mes(
+    payload: ReporteTemperaturasRequest,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+    sedes_permitidas: list[int] = Depends(get_sedes_permitidas),
+):
+    area = db.query(Area).filter(Area.id == payload.area_id).first()
+    if not area:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Área no encontrada")
+    if area.sede_id not in sedes_permitidas:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tienes acceso al área indicada",
+        )
+
+    try:
+        year, month = map(int, payload.year_month.split("-"))
+        fecha_inicio = date(year, month, 1)
+        fecha_fin = date(year, month, monthrange(year, month)[1])
+    except (ValueError, AttributeError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="year_month inválido, formato esperado YYYY-MM",
+        )
+
+    registros = crud_temp.get_registros(db, [area.sede_id], fecha_inicio, fecha_fin, area.id)
+
+    registros_dict = [
+        {
+            "fecha": str(r.fecha),
+            "hora": str(r.hora),
+            "temperatura": r.temperatura,
+            "humedad": r.humedad,
+            "usuario_nombre": getattr(r, "usuario_nombre", ""),
+            "alerta": crud_temp._alerta(r, area),
+        }
+        for r in registros
+    ]
+
+    # Extracción usando los campos correctos del modelo: humedad_min / humedad_max
+    t_min = float(area.temp_min) if area.temp_min is not None else 15.0
+    t_max = float(area.temp_max) if area.temp_max is not None else 25.0
+    h_min = float(area.humedad_min) if area.humedad_min is not None else 13.0
+    h_max = float(area.humedad_max) if area.humedad_max is not None else 27.0
+
+    buffer = generar_pdf_temperaturas(
+        area_nombre=area.nombre,
+        sede_nombre=area.sede.nombre if area.sede else "",
+        year_month=payload.year_month,
+        registros=registros_dict,
+        temp_min=t_min,
+        temp_max=t_max,
+        hum_min=h_min,
+        hum_max=h_max,
+    )
+
+    filename = f"temperaturas_{area.nombre}_{payload.year_month}.pdf"
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

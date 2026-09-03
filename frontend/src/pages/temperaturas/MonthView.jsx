@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, Thermometer, MapPin, Calendar } from 'lucide-react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, Thermometer, MapPin, Calendar, FileDown } from 'lucide-react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ReferenceLine, ReferenceArea, ResponsiveContainer,
@@ -7,6 +7,7 @@ import {
 import api from '../../services/api'
 import { cn } from '../../lib/utils'
 import { EmptyState } from '../../components/ui/EmptyState'
+import { captureChartAsBase64 } from '../../hooks/useChartCapture'
 
 /* ── Paleta de momentos ─────────────────────────────────────── */
 const MOMENTO_COLORS = {
@@ -250,6 +251,10 @@ export default function MonthView({ sedeId, areas }) {
   const [registros, setRegistros] = useState([])
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState('')
+  const [exporting, setExporting] = useState(false)
+
+  const tempChartRef = useRef(null)
+  const humChartRef  = useRef(null)
 
   const loadRegistros = useCallback(async () => {
     if (!sedeId) { setRegistros([]); return }
@@ -306,6 +311,37 @@ export default function MonthView({ sedeId, areas }) {
     [registros]
   )
 
+  const handleExportPdf = useCallback(async () => {
+    if (!selectedArea) return
+    setExporting(true)
+    setError('')
+    try {
+      const tempImg = await captureChartAsBase64(tempChartRef)
+      const humImg = humChartData.length ? await captureChartAsBase64(humChartRef) : null
+
+      const payload = {
+        area_id: selectedArea.id,
+        area_nombre: selectedArea.nombre,
+        year_month: yearMonth,
+        temp_chart_base64: tempImg,
+        hum_chart_base64: humImg,
+        registros: sortedRegistros.filter(r => r.area_id === selectedArea.id),
+      }
+
+      const res = await api.post('/temperaturas/reporte-mes', payload, { responseType: 'blob' })
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `temperaturas_${selectedArea.nombre}_${yearMonth}.pdf`
+      a.click()
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Error al generar el PDF')
+    } finally {
+      setExporting(false)
+    }
+  }, [selectedArea, yearMonth, humChartData, sortedRegistros])
+
   if (!sedeId) {
     return (
       <div className="card">
@@ -348,6 +384,17 @@ export default function MonthView({ sedeId, areas }) {
             <option value="">Todas las áreas</option>
             {areas.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
           </select>
+          {selectedArea && (
+            <button
+              onClick={handleExportPdf}
+              disabled={exporting}
+              className="btn-secondary flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Exportar PDF del mes"
+            >
+              <FileDown size={15} />
+              {exporting ? 'Generando…' : 'Exportar PDF'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -368,8 +415,14 @@ export default function MonthView({ sedeId, areas }) {
       {/* Gráficos */}
       {selectedArea && (
         <>
-          <TempChart data={chartData} area={selectedArea} yearMonth={yearMonth} />
-          <HumChart data={humChartData} area={selectedArea} yearMonth={yearMonth} />
+          <div ref={tempChartRef}>
+            <TempChart data={chartData} area={selectedArea} yearMonth={yearMonth} />
+          </div>
+          {humChartData.length > 0 && (
+            <div ref={humChartRef}>
+              <HumChart data={humChartData} area={selectedArea} yearMonth={yearMonth} />
+            </div>
+          )}
         </>
       )}
 
