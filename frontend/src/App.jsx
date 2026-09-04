@@ -19,7 +19,8 @@ import Contactos from './pages/Contactosproveedoreview'
 import ContactosView from './pages/ContactosView'
 import DevolucionesView from './pages/DevolucionesView'  // Asegúrate de que la ruta sea correcta
 import DevoluciondetalleView from './pages/Devoluciondetalleview'  // Asegúrate de que la ruta sea correcta 
-import AuditoriasView from './pages/Auditoriasview'  // Asegúrate de que la ruta sea corr
+import AuditoriasView from './pages/Auditoriasview'
+import AuditoriaDetalleView from './pages/AuditoriaDetalleView'
 
 
 function ProtectedRoute({ children, adminOnly = false }) {
@@ -161,6 +162,16 @@ element={
     <ProtectedRoute>
       <Layout>
         <AuditoriasView />
+      </Layout>
+    </ProtectedRoute>
+  }
+/>
+<Route
+  path="/auditorias/:id"
+  element={
+    <ProtectedRoute>
+      <Layout>
+        <AuditoriaDetalleView />
       </Layout>
     </ProtectedRoute>
   }

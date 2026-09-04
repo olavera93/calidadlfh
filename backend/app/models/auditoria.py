@@ -11,7 +11,7 @@ class Auditoria(Base):
     nombre_auditoria = Column(String(150), nullable=False)
     nombre_auditor = Column(String(100), nullable=False)
     sede_id = Column(Integer, ForeignKey("sedes.id"), nullable=False)
-    documento_adt = Column(String(100), nullable=True)
+    documento_adt = Column(String(255), nullable=True)
     estado = Column(String(50), nullable=False)
 
     # Manejo de fechas de la auditoría

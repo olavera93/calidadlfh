@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, Edit2, Trash2, ClipboardList, Calendar, MapPin, X, CheckCircle, Clock, XCircle, AlertCircle } from 'lucide-react'
+import { Plus, Search, Edit2, Trash2, ClipboardList, Calendar, MapPin, X, CheckCircle, Clock, XCircle, AlertCircle, Eye, Upload, Paperclip } from 'lucide-react'
 import api from '../services/api'
 import { EmptyState } from '../components/ui/EmptyState'
 import Paginator from '../components/ui/Paginator'
@@ -45,6 +45,8 @@ export default function AuditoriasView() {
   // Modal Auditoría
   const [showModal, setShowModal] = useState(false)
   const [editingAuditoria, setEditingAuditoria] = useState(null)
+  const modalFileInputRef = useRef(null)
+  const [selectedFile, setSelectedFile] = useState(null)
 
   // Modal Eliminación
   const [showModalDelete, setShowModalDelete] = useState(false)
@@ -132,12 +134,25 @@ export default function AuditoriasView() {
         fecha_finalizada: formData.fecha_finalizada ? new Date(formData.fecha_finalizada).toISOString() : null,
         novedades: formData.novedades?.trim() || null,
       }
+      let saved = null
       if (editingAuditoria) {
-        await api.put(`/auditorias/${editingAuditoria.id}`, payload)
+        const res = await api.put(`/auditorias/${editingAuditoria.id}`, payload)
+        saved = res.data
       } else {
-        await api.post('/auditorias/', payload)
+        const res = await api.post('/auditorias/', payload)
+        saved = res.data
       }
+
+      if (selectedFile && saved?.id) {
+        const fileData = new FormData()
+        fileData.append('archivo', selectedFile)
+        await api.post(`/auditorias/${saved.id}/documento`, fileData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        })
+      }
+
       setShowModal(false)
+      setSelectedFile(null)
       fetchAuditorias()
     } catch (err) {
       const detail = err.response?.data?.detail
@@ -175,6 +190,7 @@ export default function AuditoriasView() {
 
   /* ── Abrir Modal ─────────────────────────────────────────── */
   const openModal = (auditoria = null) => {
+    setSelectedFile(null)
     if (auditoria) {
       setEditingAuditoria(auditoria)
       setFormData({
@@ -322,6 +338,14 @@ export default function AuditoriasView() {
                         </span>
                       </td>
                       <td className="px-5 py-3 text-right whitespace-nowrap">
+                        <button
+                          onClick={() => navigate(`/auditorias/${auditoria.id}`)}
+                          className="p-1.5 text-surface-400 hover:text-brand-500 hover:bg-brand-50/50 rounded-lg transition-colors mr-1"
+                          title="Ver detalle de auditoría"
+                        >
+                          <Eye size={15} />
+                        </button>
+
                         <PuedeEditar>
                           <button
                             onClick={() => openModal(auditoria)}

@@ -36,7 +36,7 @@ app.include_router(productos.router)
 app.include_router(documento.router, prefix="/api")
 app.include_router(devolucion.router, prefix="/api")
 app.include_router(auditoria.router, tags=["auditorias"])
-app.include_router(auditoria_tarea.router, tags=["auditorias_tareas"]) 
+app.include_router(auditoria_tarea.router, prefix="/api", tags=["auditorias_tareas"]) 
 app.include_router(contacto.router)
 
 

@@ -145,7 +145,7 @@ def delete_tarea(
     auditoria_id: int,
     tarea_id: int,
     db: Session = Depends(get_db),
-    _: Usuario = Depends(require_admin),
+    _: Usuario = Depends(require_roles("admin", "user")),
     sedes_permitidas: list[int] = Depends(get_sedes_permitidas),
 ):
     _get_auditoria_validada(auditoria_id, db, sedes_permitidas)
