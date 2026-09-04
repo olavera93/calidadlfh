@@ -29,6 +29,7 @@ class Sede(Base):
 
     areas = relationship("Area", back_populates="sede")
     usuarios_sedes = relationship("UsuarioSede", back_populates="sede")
+    auditorias = relationship("Auditoria", back_populates="sede")
 
 
 class Area(Base):

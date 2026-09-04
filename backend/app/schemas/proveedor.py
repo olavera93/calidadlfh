@@ -12,6 +12,12 @@ class ProveedorBase(BaseModel):
     telefono: Optional[str] = None
     direccion: Optional[str] = None
     correo: Optional[EmailStr] = None
+    
+    # Nuevos campos opcionales
+    terminos: Optional[str] = None
+    banco: Optional[str] = None
+    cuenta: Optional[str] = None
+    
     activo: bool = True  # Valor por defecto
 
 
@@ -25,11 +31,16 @@ class ProveedorUpdate(BaseModel):
     telefono: Optional[str] = None
     direccion: Optional[str] = None
     correo: Optional[EmailStr] = None
+    
+    # Campos opcionales para la actualización
+    terminos: Optional[str] = None
+    banco: Optional[str] = None
+    cuenta: Optional[str] = None
+    
     activo: Optional[bool] = None  # Permite cambiar a False/True
 
 
 # Versión "plana" del proveedor, SIN el campo productos.
-# Se usa dentro de ProductoResponse.proveedor para cortar el ciclo.
 class ProveedorSimple(ProveedorBase):
     id: int
 
@@ -37,8 +48,7 @@ class ProveedorSimple(ProveedorBase):
         from_attributes = True
 
 
-# Versión completa, usada cuando pides un proveedor directamente
-# (trae sus productos, pero esos productos NO vuelven a traer el proveedor completo)
+# Versión completa
 class ProveedorResponse(ProveedorBase):
     id: int
     productos: List["ProductoSimple"] = []

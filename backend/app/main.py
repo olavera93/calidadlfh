@@ -1,3 +1,4 @@
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -8,7 +9,8 @@ from app.routers import documento  # O documentos según nombraste el archivo
 from app.schemas.proveedor import ProveedorResponse, ProveedorSimple
 from app.schemas.producto import ProductoResponse, ProductoSimple
 from app.routers import contacto
-from app.routers import devolucion  
+from app.routers import devolucion 
+from app.routers import  auditoria 
 
 Base.metadata.create_all(bind=engine)
 
@@ -31,6 +33,7 @@ app.include_router(proveedores.router)
 app.include_router(productos.router)
 app.include_router(documento.router, prefix="/api")
 app.include_router(devolucion.router, prefix="/api")
+app.include_router(auditoria.router, prefix="/api", tags=["auditorias"])
 
 app.include_router(contacto.router)
 

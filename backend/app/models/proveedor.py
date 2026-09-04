@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean
+from sqlalchemy import Column, Integer, String, Boolean, Text
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -12,7 +12,12 @@ class Proveedor(Base):
     direccion = Column(String(255), nullable=True)
     correo = Column(String(100), nullable=True)
     
-    # Nuevo campo para borrado lógico / estado
+    # Nuevos campos solicitados
+    terminos = Column(Text, nullable=True) # Text para textos largos de términos y condiciones
+    banco = Column(String(100), nullable=True)
+    cuenta = Column(String(50), nullable=True)
+    
+    # Campo para borrado lógico / estado
     activo = Column(Boolean, default=True, nullable=False)
 
     # Relaciones

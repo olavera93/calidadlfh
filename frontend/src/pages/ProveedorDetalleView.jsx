@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Building2, Package, FileText, Tag, Mail, Phone, MapPin,
   Plus, X, Download, Paperclip, ExternalLink, Edit2, Trash2, Users,
-  Eye, Briefcase, Cake, StickyNote, Search
+  Eye, Briefcase, Cake, StickyNote, Search, Landmark, CreditCard, FileSignature
 } from 'lucide-react'
 import api from '../services/api'
 import { EmptyState } from '../components/ui/EmptyState'
@@ -13,14 +13,6 @@ import PuedeEditar from '../components/PuedeEditar'
 
 /**
  * Vista de detalle de un Proveedor. Ruta esperada: /proveedores/:id
- *
- * Muestra:
- *  - Datos de contacto del proveedor
- *  - Contactos del proveedor (nombre + acceso a detalle de cada uno)
- *  - Documentos asignados al proveedor (directos o a través de sus productos)
- *  - Modal para crear / editar un documento asociado directamente al proveedor, con archivo adjunto
- *  - Modal de confirmación para eliminar documento
- *  - Modal para previsualizar el archivo de un documento antes de descargarlo
  */
 
 const MAX_FILE_SIZE_MB = 10000
@@ -28,8 +20,6 @@ const ACCEPTED_EXTENSIONS = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx'
 const IMAGE_EXTENSION_REGEX = /\.(jpg|jpeg|png|gif|webp)$/i
 const OFFICE_EXTENSION_REGEX = /\.(doc|docx|xls|xlsx|ppt|pptx)$/i
 
-// Metadatos visuales por tipo de archivo: cada extensión recibe un color
-// propio para que la grilla de documentos no se vea plana.
 const FILE_TYPE_META = {
   pdf: { label: 'PDF', classes: 'bg-rose-50 text-rose-600 border-rose-200' },
   jpg: { label: 'IMG', classes: 'bg-violet-50 text-violet-600 border-violet-200' },
@@ -64,7 +54,7 @@ export default function ProveedorDetalleView() {
 
   /* ── Estados para el Modal de Crear/Editar Documento ─────── */
   const [showModalDocumento, setShowModalDocumento] = useState(false)
-  const [editingDocId, setEditingDocId] = useState(null) // null = Crear, ID = Editar
+  const [editingDocId, setEditingDocId] = useState(null)
   const [tagInput, setTagInput] = useState('')
   const [formDocumento, setFormDocumento] = useState({
     nombre_docu: '',
@@ -80,7 +70,7 @@ export default function ProveedorDetalleView() {
   const [deleting, setDeleting] = useState(false)
 
   /* ── Estado para el Modal de Vista Previa de Archivo ─────── */
-  const [docPreview, setDocPreview] = useState(null) // { id, nombre, url }
+  const [docPreview, setDocPreview] = useState(null)
 
   /* ── Buscador de Documentos ───────────────────────────────── */
   const [busquedaDoc, setBusquedaDoc] = useState('')
@@ -123,7 +113,7 @@ export default function ProveedorDetalleView() {
     fetchData()
   }, [fetchData])
 
-  /* ── Documentos asignados a este proveedor (directo o vía producto) ── */
+  /* ── Documentos asignados ───────────────────────────────── */
   const documentosDelProveedor = useMemo(() => {
     return documentos.filter((doc) => {
       const provDirecto = doc.proveedor_id ?? doc.proveedor?.id
@@ -135,7 +125,7 @@ export default function ProveedorDetalleView() {
     })
   }, [documentos, proveedorId])
 
-  /* ── Documentos filtrados por el buscador (nombre o etiquetas) ────── */
+  /* ── Documentos filtrados por búsqueda ───────────────────── */
   const documentosFiltrados = useMemo(() => {
     const q = busquedaDoc.trim().toLowerCase()
     if (!q) return documentosDelProveedor
@@ -150,7 +140,6 @@ export default function ProveedorDetalleView() {
     })
   }, [documentosDelProveedor, busquedaDoc])
 
-  // Ajustar página si cambia el tamaño de la lista de documentos filtrados
   useEffect(() => {
     const maxPage = Math.max(1, Math.ceil(documentosFiltrados.length / itemsPerPageDoc))
     if (currentPageDoc > maxPage) {
@@ -158,7 +147,6 @@ export default function ProveedorDetalleView() {
     }
   }, [documentosFiltrados.length, itemsPerPageDoc, currentPageDoc])
 
-  // Volver a la página 1 cada vez que cambia el término de búsqueda
   useEffect(() => {
     setCurrentPageDoc(1)
   }, [busquedaDoc])
@@ -191,31 +179,30 @@ export default function ProveedorDetalleView() {
   }
 
   /* ── Manejo de Archivo ────────────────────────────────────── */
- /* ── Importar: Lectura del Archivo y Parsing de Estado ───── */
-const handleFileChange = (e) => {
-  const file = e.target.files[0]
-  if (!file) return
+  const handleFileChange = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
 
-  setFileError('')
+    setFileError('')
 
-  const ext = `.${file.name.split('.').pop()?.toLowerCase()}`
-  const extensionesPermitidas = ACCEPTED_EXTENSIONS.split(',')
+    const ext = `.${file.name.split('.').pop()?.toLowerCase()}`
+    const extensionesPermitidas = ACCEPTED_EXTENSIONS.split(',')
 
-  if (!extensionesPermitidas.includes(ext)) {
-    setFileError(`Tipo de archivo no permitido. Formatos válidos: ${ACCEPTED_EXTENSIONS}`)
-    e.target.value = ''
-    return
+    if (!extensionesPermitidas.includes(ext)) {
+      setFileError(`Tipo de archivo no permitido. Formatos válidos: ${ACCEPTED_EXTENSIONS}`)
+      e.target.value = ''
+      return
+    }
+
+    const sizeMB = file.size / (1024 * 1024)
+    if (sizeMB > MAX_FILE_SIZE_MB) {
+      setFileError(`El archivo supera el tamaño máximo permitido (${MAX_FILE_SIZE_MB} MB).`)
+      e.target.value = ''
+      return
+    }
+
+    setFormDocumento((prev) => ({ ...prev, archivo: file }))
   }
-
-  const sizeMB = file.size / (1024 * 1024)
-  if (sizeMB > MAX_FILE_SIZE_MB) {
-    setFileError(`El archivo supera el tamaño máximo permitido (${MAX_FILE_SIZE_MB} MB).`)
-    e.target.value = ''
-    return
-  }
-
-  setFormDocumento((prev) => ({ ...prev, archivo: file }))
-}
 
   /* ── Abrir Modal Crear Documento ─────────────────────────── */
   const handleOpenCreateModal = () => {
@@ -236,18 +223,17 @@ const handleFileChange = (e) => {
     setFormDocumento({
       nombre_docu: doc.nombre_docu || '',
       etiquetas: Array.isArray(doc.etiquetas) ? [...doc.etiquetas] : [],
-      archivo: null // El archivo es opcional en edición
+      archivo: null
     })
     setTagInput('')
     setFileError('')
     setShowModalDocumento(true)
   }
 
-  /* ── Guardar Documento (Crear o Editar) ──────────────────── */
+  /* ── Guardar Documento ───────────────────────────────────── */
   const handleSaveDocumento = async (e) => {
     e.preventDefault()
 
-    // Para creación es obligatorio el archivo. En edición es opcional.
     if (!editingDocId && !formDocumento.archivo) {
       setFileError('Debes adjuntar un archivo.')
       return
@@ -265,19 +251,17 @@ const handleFileChange = (e) => {
       }
 
       if (editingDocId) {
-        // Petición de Edición (Ajusta a PUT o PATCH según el endpoint de tu backend)
         await api.put(`/documentos/${editingDocId}`, data, {
           headers: { 'Content-Type': 'multipart/form-data' }
         })
       } else {
-        // Petición de Creación
         await api.post('/documentos/', data, {
           headers: { 'Content-Type': 'multipart/form-data' }
         })
       }
 
       setShowModalDocumento(false)
-      fetchData() // Recarga los documentos actualizados
+      fetchData()
     } catch (err) {
       alert(err.response?.data?.detail || 'Error al guardar el documento')
     } finally {
@@ -299,7 +283,7 @@ const handleFileChange = (e) => {
       await api.delete(`/documentos/${docToDelete.id}`)
       setShowModalDelete(false)
       setDocToDelete(null)
-      fetchData() // Recarga lista tras eliminar
+      fetchData()
     } catch (err) {
       alert(err.response?.data?.detail || 'Error al eliminar el documento')
     } finally {
@@ -343,81 +327,148 @@ const handleFileChange = (e) => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:items-stretch">
         {/* ── COLUMNA IZQUIERDA: Info del proveedor + Contactos ───────── */}
         <div className="flex flex-col gap-5 min-w-0">
-          {/* INFO DEL PROVEEDOR */}
-          <div className="relative overflow-hidden rounded-2xl border border-surface-100 bg-white p-6 shadow-sm">
-            <div className="absolute inset-x-0 top-0 h-1.5 bg-[#22D3EE]" />
+        {/* INFO DEL PROVEEDOR */}
+<div className="relative overflow-hidden rounded-2xl border border-surface-100 bg-white p-5 shadow-sm">
+  <div className="absolute inset-x-0 top-0 h-1.5 bg-[#22D3EE]" />
 
-            <div className="flex items-start gap-4">
-              <button
-                onClick={() => navigate('/proveedores')}
-                className="p-2 rounded-xl text-surface-500 hover:text-surface-800 hover:bg-surface-100 transition-colors mt-0.5"
-                title="Volver a proveedores"
-              >
-                <ArrowLeft size={18} />
-              </button>
+  <div className="flex flex-col gap-4">
+    {/* Encabezado Principal: Botón Volver + Ícono + Título + Botón Productos */}
+    <div className="flex items-center justify-between gap-3 flex-wrap pb-3 border-b border-surface-100">
+      <div className="flex items-center gap-3 min-w-0">
+        <button
+          onClick={() => navigate('/proveedores')}
+          className="p-2 rounded-xl text-surface-500 hover:text-surface-800 hover:bg-surface-100 transition-colors"
+          title="Volver a proveedores"
+        >
+          <ArrowLeft size={18} />
+        </button>
 
-              <div className="hidden sm:flex h-12 w-12 shrink-0 rounded-2xl bg-[#0B1220] items-center justify-center shadow-sm">
-                <Building2 size={22} className="text-white" />
+        <div className="flex h-10 w-10 shrink-0 rounded-xl bg-[#0B1220] items-center justify-center shadow-sm">
+          <Building2 size={20} className="text-white" />
+        </div>
+
+        <div className="min-w-0">
+          <h2 className="text-lg font-bold text-surface-800 truncate">{proveedor.nombre}</h2>
+          <p className="text-[11px] text-surface-400">Detalles generales del proveedor</p>
+        </div>
+      </div>
+
+      <button
+        onClick={() => navigate(`/productos?proveedor_id=${proveedorId}`)}
+        className="shrink-0 bg-[#0B1220] hover:bg-[#16233A] text-[#22D3EE] text-xs font-medium px-3.5 py-2 rounded-xl transition-colors flex items-center gap-2 cursor-pointer shadow-sm"
+      >
+        <Package size={14} /> Ver productos
+      </button>
+    </div>
+
+    {/* Grid de Datos Adaptable (2 columnas flexibles en escritorio para que el texto no se corte) */}
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+      {proveedor.identificacion && (
+        <div className="bg-surface-50/70 px-3.5 py-2.5 rounded-xl border border-surface-100 flex flex-col justify-center min-w-0">
+          <span className="text-[10px] font-bold text-surface-400 uppercase tracking-wider">
+            NIT / ID
+          </span>
+          <span className="text-xs font-mono font-semibold text-surface-700 mt-0.5 truncate">
+            {proveedor.identificacion}
+          </span>
+        </div>
+      )}
+
+      {proveedor.correo && (
+        <div className="bg-surface-50/70 px-3.5 py-2.5 rounded-xl border border-surface-100 flex flex-col justify-center min-w-0">
+          <span className="flex items-center gap-1.5 text-[10px] font-bold text-surface-400 uppercase tracking-wider">
+            <Mail size={12} className="text-[#22D3EE]" />
+            Correo
+          </span>
+          <span className="text-xs font-medium text-surface-700 mt-0.5 break-all" title={proveedor.correo}>
+            {proveedor.correo}
+          </span>
+        </div>
+      )}
+
+      {proveedor.telefono && (
+        <div className="bg-surface-50/70 px-3.5 py-2.5 rounded-xl border border-surface-100 flex flex-col justify-center min-w-0">
+          <span className="flex items-center gap-1.5 text-[10px] font-bold text-surface-400 uppercase tracking-wider">
+            <Phone size={12} className="text-[#22D3EE]" />
+            Teléfono
+          </span>
+          <span className="text-xs font-medium text-surface-700 mt-0.5 truncate">
+            {proveedor.telefono}
+          </span>
+        </div>
+      )}
+
+      {proveedor.direccion && (
+        <div className="bg-surface-50/70 px-3.5 py-2.5 rounded-xl border border-surface-100 flex flex-col justify-center min-w-0">
+          <span className="flex items-center gap-1.5 text-[10px] font-bold text-surface-400 uppercase tracking-wider">
+            <MapPin size={12} className="text-[#22D3EE]" />
+            Dirección
+          </span>
+          <span className="text-xs font-medium text-surface-700 mt-0.5 break-words" title={proveedor.direccion}>
+            {proveedor.direccion}
+          </span>
+        </div>
+      )}
+    </div>
+
+    {/* Sección Bancaria */}
+    {(proveedor.banco || proveedor.cuenta) && (
+      <div className="pt-1">
+        <span className="text-[10px] font-bold text-surface-400 uppercase tracking-wider block mb-2">
+          Datos Bancarios
+        </span>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 bg-surface-50/50 p-2.5 rounded-xl border border-surface-100">
+          {proveedor.banco && (
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="p-1.5 rounded-lg bg-white border border-surface-200 text-[#22D3EE] shrink-0">
+                <Landmark size={14} />
               </div>
-
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-3 flex-wrap">
-                  <h2 className="text-xl font-bold text-surface-800 break-words">{proveedor.nombre}</h2>
-
-                  <button
-                    onClick={() => navigate(`/productos?proveedor_id=${proveedorId}`)}
-                    className="shrink-0 bg-[#0B1220] hover:bg-[#16233A] text-[#22D3EE] text-xs font-medium px-3 py-2 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
-                  >
-                    <Package size={14} /> Ver productos
-                  </button>
-                </div>
-
-                {/* Metadatos con título propio, no simples etiquetas */}
-                <div className="mt-3 flex flex-wrap items-start gap-x-6 gap-y-2.5">
-                  {proveedor.identificacion && (
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-[10px] font-semibold text-surface-400 uppercase tracking-wide">
-                        NIT / ID
-                      </span>
-                      <span className="text-xs font-mono text-surface-700">{proveedor.identificacion}</span>
-                    </div>
-                  )}
-
-                  {proveedor.correo && (
-                    <div className="flex flex-col gap-0.5 border-l border-surface-200 pl-6">
-                      <span className="flex items-center gap-1 text-[10px] font-semibold text-surface-400 uppercase tracking-wide">
-                        <Mail size={11} className="text-[#22D3EE]" />
-                        Correo
-                      </span>
-                      <span className="text-xs text-surface-700">{proveedor.correo}</span>
-                    </div>
-                  )}
-
-                  {proveedor.telefono && (
-                    <div className="flex flex-col gap-0.5 border-l border-surface-200 pl-6">
-                      <span className="flex items-center gap-1 text-[10px] font-semibold text-surface-400 uppercase tracking-wide">
-                        <Phone size={11} className="text-[#22D3EE]" />
-                        Teléfono
-                      </span>
-                      <span className="text-xs text-surface-700">{proveedor.telefono}</span>
-                    </div>
-                  )}
-
-                  {proveedor.direccion && (
-                    <div className="flex flex-col gap-0.5 border-l border-surface-200 pl-6">
-                      <span className="flex items-center gap-1 text-[10px] font-semibold text-surface-400 uppercase tracking-wide">
-                        <MapPin size={11} className="text-[#22D3EE]" />
-                        Dirección
-                      </span>
-                      <span className="text-xs text-surface-700">{proveedor.direccion}</span>
-                    </div>
-                  )}
-                </div>
+              <div className="min-w-0">
+                <span className="text-[10px] font-semibold text-surface-400 block leading-none">Banco</span>
+                <span className="text-xs font-medium text-surface-700 truncate block mt-0.5">{proveedor.banco}</span>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* CONTACTOS (nombre + acceso a detalle de cada uno) */}
+          {proveedor.cuenta && (
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="p-1.5 rounded-lg bg-white border border-surface-200 text-[#22D3EE] shrink-0">
+                <CreditCard size={14} />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[10px] font-semibold text-surface-400 block leading-none">Número de Cuenta</span>
+                <span className="text-xs font-mono font-medium text-surface-700 truncate block mt-0.5">{proveedor.cuenta}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )}
+
+    {/* Términos y Condiciones */}
+    {proveedor.terminos && (
+      <div className="pt-1 border-t border-surface-100">
+        <details className="group">
+          <summary className="flex items-center justify-between gap-2 text-[11px] font-bold text-surface-600 hover:text-surface-900 uppercase tracking-wider cursor-pointer select-none py-1 transition-colors">
+            <span className="flex items-center gap-2">
+              <FileSignature size={14} className="text-[#22D3EE]" />
+              Términos y Condiciones
+            </span>
+            <span className="text-surface-400 text-xs group-open:rotate-180 transition-transform duration-200">
+              ▼
+            </span>
+          </summary>
+          
+          <div className="mt-2 max-h-52 overflow-y-auto text-xs text-surface-600 bg-surface-50 p-3.5 rounded-xl border border-surface-100 leading-relaxed whitespace-pre-wrap shadow-inner">
+            {proveedor.terminos}
+          </div>
+        </details>
+      </div>
+    )}
+  </div>
+</div>
+
+          {/* CONTACTOS */}
           <div className="bg-white rounded-2xl border border-surface-100 shadow-sm p-5 flex flex-col flex-1 min-h-[260px]">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
@@ -430,12 +481,12 @@ const handleFileChange = (e) => {
               </div>
 
               <PuedeEditar>
-              <button
-                onClick={() => navigate(`/proveedores/${proveedorId}/contactos`)}
-                className="text-[11px] font-medium text-surface-500 hover:text-brand-600 transition-colors flex items-center gap-1"
-              >
-                <Plus size={13} /> Gestionar
-              </button>
+                <button
+                  onClick={() => navigate(`/proveedores/${proveedorId}/contactos`)}
+                  className="text-[11px] font-medium text-surface-500 hover:text-brand-600 transition-colors flex items-center gap-1"
+                >
+                  <Plus size={13} /> Gestionar
+                </button>
               </PuedeEditar>
             </div>
 
@@ -468,7 +519,7 @@ const handleFileChange = (e) => {
           </div>
         </div>
 
-        {/* ── COLUMNA DERECHA: Documentos, a toda la altura ───────────── */}
+        {/* ── COLUMNA DERECHA: Documentos ───────────── */}
         <div className="bg-white rounded-2xl border border-surface-100 shadow-sm p-5 flex flex-col lg:h-full min-h-[500px]">
           <div className="flex items-center justify-between mb-4 shrink-0">
             <div className="flex items-center gap-2">
@@ -512,7 +563,7 @@ const handleFileChange = (e) => {
             </div>
           )}
 
-          {/* LISTA DE DOCUMENTOS: ocupa el espacio restante, con scroll interno si no caben */}
+          {/* LISTA DE DOCUMENTOS */}
           <div className="flex-1 min-h-0 overflow-y-auto pr-1 -mr-1">
             {documentosDelProveedor.length === 0 ? (
               <EmptyState message="Este proveedor no tiene documentos asignados." />
@@ -569,26 +620,24 @@ const handleFileChange = (e) => {
                         </button>
 
                         <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <PuedeEditar>
+                            <button
+                              onClick={() => handleOpenEditModal(doc)}
+                              className="p-1.5 text-surface-400 hover:text-brand-500 hover:bg-white rounded-lg transition-colors"
+                              title="Editar documento"
+                            >
+                              <Edit2 size={13} />
+                            </button>
+                          </PuedeEditar>
 
                           <PuedeEditar>
-                          <button
-                            onClick={() => handleOpenEditModal(doc)}
-                            className="p-1.5 text-surface-400 hover:text-brand-500 hover:bg-white rounded-lg transition-colors"
-                            title="Editar documento"
-                          >
-                            <Edit2 size={13} />
-                          </button>
-                          </PuedeEditar>    
-
-
-                          <PuedeEditar>    
-                          <button
-                            onClick={() => handleOpenDeleteModal(doc)}
-                            className="p-1.5 text-surface-400 hover:text-danger-500 hover:bg-white rounded-lg transition-colors"
-                            title="Eliminar documento"
-                          >
-                            <Trash2 size={13} />
-                          </button>
+                            <button
+                              onClick={() => handleOpenDeleteModal(doc)}
+                              className="p-1.5 text-surface-400 hover:text-danger-500 hover:bg-white rounded-lg transition-colors"
+                              title="Eliminar documento"
+                            >
+                              <Trash2 size={13} />
+                            </button>
                           </PuedeEditar>
                         </div>
                       </div>

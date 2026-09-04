@@ -52,6 +52,9 @@ export default function ProveedoresView() {
     { key: 'correo', label: 'Correo' },
     { key: 'telefono', label: 'Teléfono' },
     { key: 'direccion', label: 'Dirección' },
+    { key: 'banco', label: 'Banco' },
+    { key: 'cuenta', label: 'Número de Cuenta' },
+    { key: 'terminos', label: 'Términos y Condiciones' },
     { key: 'activo', label: 'Estado' }
   ]
 
@@ -62,6 +65,9 @@ export default function ProveedoresView() {
     telefono: '',
     direccion: '',
     correo: '',
+    banco: '',
+    cuenta: '',
+    terminos: '',
     activo: true
   })
 
@@ -142,7 +148,7 @@ export default function ProveedoresView() {
   const clearSelection = () => setSelectedIds(new Set())
 
   /* ── Exportar: Abrir Modal Previo ──────────────────────────── */
-  const handleOpenExportModal = () => {
+ const handleOpenExportModal = () => {
     const proveedoresAExportar =
       selectedIds.size > 0
         ? proveedores.filter((p) => selectedIds.has(p.id))
@@ -159,6 +165,9 @@ export default function ProveedoresView() {
       correo: p.correo || '',
       telefono: p.telefono || '',
       direccion: p.direccion || '',
+      banco: p.banco || '',
+      cuenta: p.cuenta || '',
+      terminos: p.terminos || '',
       activo: Boolean(p.activo) ? 'Activo' : 'Inactivo'
     }))
 
@@ -175,6 +184,9 @@ export default function ProveedoresView() {
       'Correo': p.correo,
       'Teléfono': p.telefono,
       'Dirección': p.direccion,
+      'Banco': p.banco,
+      'Número de Cuenta': p.cuenta,
+      'Términos y Condiciones': p.terminos,
       'Estado': p.activo
     }))
 
@@ -187,6 +199,7 @@ export default function ProveedoresView() {
   }
 
   /* ── Importar: Lectura del Archivo y Parsing de Estado ───── */
+ /* ── Importar desde Excel ───────────────────────────── */
   const handleFileChange = (e) => {
     const file = e.target.files[0]
     if (!file) return
@@ -207,7 +220,6 @@ export default function ProveedoresView() {
 
         const proveedoresAImportar = data
           .map((item) => {
-            // Normalización del valor de estado enviado en el Excel
             const rawEstado = String(
               item['Estado'] || item['activo'] || item['estado'] || ''
             ).trim().toLowerCase()
@@ -227,6 +239,9 @@ export default function ProveedoresView() {
               correo: String(item['Correo'] || item['correo'] || item['Email'] || '').trim() || null,
               telefono: String(item['Teléfono'] || item['telefono'] || item['Telefono'] || '').trim() || null,
               direccion: String(item['Dirección'] || item['direccion'] || item['Direccion'] || '').trim() || null,
+              banco: String(item['Banco'] || item['banco'] || '').trim() || null,
+              cuenta: String(item['Número de Cuenta'] || item['cuenta'] || item['Cuenta'] || '').trim() || null,
+              terminos: String(item['Términos y Condiciones'] || item['terminos'] || '').trim() || null,
               activo: esActivo
             }
           })
@@ -267,33 +282,36 @@ export default function ProveedoresView() {
   }
 
   /* ── Guardar / Editar ────────────────────────────────────── */
-  const handleSave = async (e) => {
-  e.preventDefault()
-  try {
-    const payload = {
-      ...formData,
-      telefono: formData.telefono?.trim() || null,
-      direccion: formData.direccion?.trim() || null,
-      correo: formData.correo?.trim() || null,
+const handleSave = async (e) => {
+    e.preventDefault()
+    try {
+      const payload = {
+        ...formData,
+        telefono: formData.telefono?.trim() || null,
+        direccion: formData.direccion?.trim() || null,
+        correo: formData.correo?.trim() || null,
+        banco: formData.banco?.trim() || null,
+        cuenta: formData.cuenta?.trim() || null,
+        terminos: formData.terminos?.trim() || null,
+      }
+      if (editingProveedor) {
+        await api.put(`/proveedores/${editingProveedor.id}`, payload)
+      } else {
+        await api.post('/proveedores/', payload)
+      }
+      setShowModal(false)
+      fetchProveedores()
+    } catch (err) {
+      const detail = err.response?.data?.detail
+      let mensaje = 'Error al guardar el proveedor'
+      if (typeof detail === 'string') {
+        mensaje = detail
+      } else if (Array.isArray(detail)) {
+        mensaje = detail.map((d) => `${d.loc?.[d.loc.length - 1]}: ${d.msg}`).join('\n')
+      }
+      alert(mensaje)
     }
-    if (editingProveedor) {
-      await api.put(`/proveedores/${editingProveedor.id}`, payload)
-    } else {
-      await api.post('/proveedores/', payload)
-    }
-    setShowModal(false)
-    fetchProveedores()
-  } catch (err) {
-    const detail = err.response?.data?.detail
-    let mensaje = 'Error al guardar el proveedor'
-    if (typeof detail === 'string') {
-      mensaje = detail
-    } else if (Array.isArray(detail)) {
-      mensaje = detail.map((d) => `${d.loc?.[d.loc.length - 1]}: ${d.msg}`).join('\n')
-    }
-    alert(mensaje)
   }
-}
 
   /* ── Handlers de Desactivación (Soft Delete) ─────────────── */
   const handleOpenDeleteModal = (prov) => {
@@ -318,7 +336,7 @@ export default function ProveedoresView() {
   }
 
   /* ── Abrir Modal ─────────────────────────────────────────── */
-  const openModal = (prov = null) => {
+ const openModal = (prov = null) => {
     if (prov) {
       setEditingProveedor(prov)
       setFormData({
@@ -327,11 +345,24 @@ export default function ProveedoresView() {
         telefono: prov.telefono || '',
         direccion: prov.direccion || '',
         correo: prov.correo || '',
+        banco: prov.banco || '',
+        cuenta: prov.cuenta || '',
+        terminos: prov.terminos || '',
         activo: prov.activo !== undefined ? Boolean(prov.activo) : true
       })
     } else {
       setEditingProveedor(null)
-      setFormData({ nombre: '', identificacion: '', telefono: '', direccion: '', correo: '', activo: true })
+      setFormData({ 
+        nombre: '', 
+        identificacion: '', 
+        telefono: '', 
+        direccion: '', 
+        correo: '', 
+        banco: '',
+        cuenta: '',
+        terminos: '',
+        activo: true 
+      })
     }
     setShowModal(true)
   }
@@ -574,9 +605,10 @@ export default function ProveedoresView() {
       />
 
       {/* Modal Crear / Editar Proveedor */}
+      {/* Modal Crear / Editar Proveedor */}
       {showModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-modal border border-surface-100">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-modal border border-surface-100 max-h-[90vh] overflow-y-auto scrollbar-thin">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-base font-semibold text-surface-800">
                 {editingProveedor ? 'Editar Proveedor' : 'Nuevo Proveedor'}
@@ -614,15 +646,28 @@ export default function ProveedoresView() {
                 />
               </div>
 
-              <div>
-                <label className="text-xs font-semibold text-surface-600">Teléfono</label>
-                <input
-                  type="text"
-                  value={formData.telefono}
-                  onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
-                  className="input-base w-full mt-1"
-                  placeholder="Ej. +57 300 123 4567"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-surface-600">Teléfono</label>
+                  <input
+                    type="text"
+                    value={formData.telefono}
+                    onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
+                    className="input-base w-full mt-1"
+                    placeholder="Ej. +57 300 123 4567"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-surface-600">Correo Electrónico</label>
+                  <input
+                    type="email"
+                    value={formData.correo}
+                    onChange={(e) => setFormData({ ...formData, correo: e.target.value })}
+                    className="input-base w-full mt-1"
+                    placeholder="contacto@proveedor.com"
+                  />
+                </div>
               </div>
 
               <div>
@@ -636,14 +681,40 @@ export default function ProveedoresView() {
                 />
               </div>
 
+              {/* Información Bancaria */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label className="text-xs font-semibold text-surface-600">Banco</label>
+                  <input
+                    type="text"
+                    value={formData.banco}
+                    onChange={(e) => setFormData({ ...formData, banco: e.target.value })}
+                    className="input-base w-full mt-1"
+                    placeholder="Ej. Bancolombia / Davivienda"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-surface-600">Número de Cuenta</label>
+                  <input
+                    type="text"
+                    value={formData.cuenta}
+                    onChange={(e) => setFormData({ ...formData, cuenta: e.target.value })}
+                    className="input-base w-full mt-1"
+                    placeholder="Ej. 123-456789-00"
+                  />
+                </div>
+              </div>
+
+              {/* Términos y Condiciones */}
               <div>
-                <label className="text-xs font-semibold text-surface-600">Correo Electrónico</label>
-                <input
-                  type="email"
-                  value={formData.correo}
-                  onChange={(e) => setFormData({ ...formData, correo: e.target.value })}
-                  className="input-base w-full mt-1"
-                  placeholder="contacto@proveedor.com"
+                <label className="text-xs font-semibold text-surface-600">Términos y Condiciones</label>
+                <textarea
+                  rows={3}
+                  value={formData.terminos}
+                  onChange={(e) => setFormData({ ...formData, terminos: e.target.value })}
+                  className="input-base w-full mt-1 py-2 resize-none text-xs"
+                  placeholder="Especifica los términos de pago, días de crédito u otras condiciones de contratación..."
                 />
               </div>
 
