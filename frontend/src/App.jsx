@@ -19,7 +19,7 @@ import Contactos from './pages/Contactosproveedoreview'
 import ContactosView from './pages/ContactosView'
 import DevolucionesView from './pages/DevolucionesView'  // Asegúrate de que la ruta sea correcta
 import DevoluciondetalleView from './pages/Devoluciondetalleview'  // Asegúrate de que la ruta sea correcta 
-
+import AuditoriasView from './pages/Auditoriasview'  // Asegúrate de que la ruta sea corr
 
 
 function ProtectedRoute({ children, adminOnly = false }) {
@@ -155,7 +155,16 @@ element={
     </ProtectedRoute>
   }
 />
-
+<Route
+  path="/auditorias"
+  element={
+    <ProtectedRoute>
+      <Layout>
+        <AuditoriasView />
+      </Layout>
+    </ProtectedRoute>
+  }
+/>
 
 
       <Route

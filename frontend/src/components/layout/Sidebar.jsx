@@ -143,6 +143,7 @@ export default function Sidebar() {
         <SectionLabel label="Odoo" collapsed={collapsed} />
         <NavItem to="/odoo/recepciones"  icon={PackageCheck}  label="Recepciones"    collapsed={collapsed} />
         <NavItem to="/odoo/vencimientos" icon={CalendarX2}    label="Vencimientos"   collapsed={collapsed} />
+        <NavItem to="/auditorias"          icon={LayoutDashboard} label="Auditorías"     collapsed={collapsed} />
 
         <SectionLabel label="Sistema" collapsed={collapsed} />
         <PuedeEditar>
